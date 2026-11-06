@@ -23,10 +23,10 @@ namespace ABC
         private void LoadSanPhamTang()
         {
             dgvSanPham.DataSource = Voucher1tang1BUS.Instance.TimSanPhamTang("");
-            if (dgvSanPham.Columns.Contains("masp"))
-                dgvSanPham.Columns["masp"].HeaderText = "Mã sản phẩm";
-            if (dgvSanPham.Columns.Contains("tensp"))
-                dgvSanPham.Columns["tensp"].HeaderText = "Tên sản phẩm";
+            if (dgvSanPham.Columns.Contains("Masp"))
+                dgvSanPham.Columns["Masp"].HeaderText = "Mã sản phẩm";
+            if (dgvSanPham.Columns.Contains("Tensp"))
+                dgvSanPham.Columns["Tensp"].HeaderText = "Tên sản phẩm";
         }
 
         private void ThemMaGiamGia1tang1_Load(object sender, EventArgs e)
@@ -37,10 +37,10 @@ namespace ABC
             cbbLoaiMa.SelectedIndex = 0;
 
             // Load loại sản phẩm mua
-            var dtLoaiSP = DataProvider.Instance.ExecuteQuery("SELECT maloai, tenloai FROM LOAISP");
-            cbbSanPhamMua.DisplayMember = "tenloai";
-            cbbSanPhamMua.ValueMember = "maloai";
-            cbbSanPhamMua.DataSource = dtLoaiSP;
+            var dsLoaiSP = DanhSachSanPhamBUS.Instance.GetLoaiSanPham();
+            cbbSanPhamMua.DisplayMember = "TenLoai";
+            cbbSanPhamMua.ValueMember = "MaLoai";
+            cbbSanPhamMua.DataSource = dsLoaiSP;
             cbbLoaiMa_SelectedIndexChanged(null, null);
 
             // Format giao diện
@@ -48,11 +48,11 @@ namespace ABC
             UIText.ApplyButtonTextStyle(this);
             UIDataGridView.FormatDataGridView(dgvSanPham);
 
-            if (dgvSanPham.Columns.Contains("masp"))
-                dgvSanPham.Columns["masp"].HeaderText = "Mã sản phẩm";
+            if (dgvSanPham.Columns.Contains("Masp"))
+                dgvSanPham.Columns["Masp"].HeaderText = "Mã sản phẩm";
 
-            if (dgvSanPham.Columns.Contains("tensp"))
-                dgvSanPham.Columns["tensp"].HeaderText = "Tên sản phẩm";
+            if (dgvSanPham.Columns.Contains("Tensp"))
+                dgvSanPham.Columns["Tensp"].HeaderText = "Tên sản phẩm";
 
             // do not try to access 'kichco' column — it no longer exists
         }
@@ -72,9 +72,9 @@ namespace ABC
                 if (cbbSanPhamMua.SelectedValue != null && int.TryParse(cbbSanPhamMua.SelectedValue.ToString(), out int maloai))
                 {
                     dgvSanPham.DataSource = Voucher1tang1BUS.Instance.TimSanPhamTangTheoLoai(maloai);
-                    if (dgvSanPham.Columns.Contains("maloai"))
+                    if (dgvSanPham.Columns.Contains("Maloai"))
                     {
-                        dgvSanPham.Columns["maloai"].Visible = false;
+                        dgvSanPham.Columns["Maloai"].Visible = false;
                     }
                 }
                 else
@@ -166,7 +166,7 @@ namespace ABC
 
             foreach (DataGridViewRow row in dgvSanPham.SelectedRows)
             {
-                string masp = row.Cells["masp"].Value?.ToString();
+                string masp = row.Cells["Masp"].Value?.ToString();
 
                 if (string.IsNullOrEmpty(masp))
                 {
@@ -176,13 +176,13 @@ namespace ABC
 
                 if (loaiVC == 2)
                 {
-                    if (!dgvSanPham.Columns.Contains("maloai") || row.Cells["maloai"].Value == null)
+                    if (!dgvSanPham.Columns.Contains("Maloai") || row.Cells["Maloai"].Value == null)
                     {
                         message = $"Thiếu thông tin loại sản phẩm cho '{masp}'.";
                         return false;
                     }
 
-                    int maloaiSP = Convert.ToInt32(row.Cells["maloai"].Value);
+                    int maloaiSP = Convert.ToInt32(row.Cells["Maloai"].Value);
                     if (maloaiSP != maloai)
                     {
                         message = $"Sản phẩm tặng '{masp}' không cùng dòng với sản phẩm mua.";

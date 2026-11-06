@@ -1,4 +1,5 @@
 ﻿using BUS;
+using DTO;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -37,17 +38,18 @@ namespace ABC
                 dgvMaGiamGia.Columns[columnName].HeaderText = headerText;
             }
         }
+        private List<VoucherHienThiDTO> dsVoucher = new List<VoucherHienThiDTO>();
+
         public void LoadVouchers()
         {
 
-            DataTable dt = VoucherBUS.Instance.GetAllVouchersWithJoin();
-            dgvMaGiamGia.DataSource = dt;
+            dsVoucher = VoucherBUS.Instance.GetAllVouchersWithJoin();
+            dgvMaGiamGia.DataSource = dsVoucher;
             SetAllColumnHeaders();
         }
         private void LoadVoucherTypes()
         {
-            DataTable dt = VoucherBUS.Instance.GetVoucherTypes();
-            cbbLoaiVoucher.DataSource = dt;
+            cbbLoaiVoucher.DataSource = VoucherBUS.Instance.GetVoucherTypes();
             cbbLoaiVoucher.DisplayMember = "Tenloai";
             cbbLoaiVoucher.ValueMember = "Maloaivc";
             cbbLoaiVoucher.SelectedIndex = -1;
@@ -106,10 +108,10 @@ namespace ABC
 
         private void txtTimKiem_TextChanged(object sender, EventArgs e)
         {
-            if (dgvMaGiamGia.DataSource is DataTable dt)
-            {
-                dt.DefaultView.RowFilter = string.Format("Code LIKE '%{0}%'", txtTimKiem.Text.Trim());
-            }
+            string keyword = txtTimKiem.Text.Trim();
+            dgvMaGiamGia.DataSource = dsVoucher
+                .Where(v => v.Code.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
         }
 
@@ -132,7 +134,7 @@ namespace ABC
             SetColumnHeader("Ngaykt", "Ngày kết thúc");
             SetColumnHeader("DieuKien", "Đơn tối thiểu");
             SetColumnHeader("Maloaivc", "Loại mã");
-            SetColumnHeader("maloai", "Mã loại sản phẩm mua");
+            SetColumnHeader("Maloai", "Mã loại sản phẩm mua");
             SetColumnHeader("TenLoaiVouCher", "Tên loại mã giảm giá");
             SetColumnHeader("TenLoaiSanPhamApDung", "Loại Sản phẩm áp dụng");
             SetColumnHeader("TenLoaiSanPhamTang", "Loại Sản phẩm tặng");
@@ -143,9 +145,9 @@ namespace ABC
         {
             if (cbbLoaiVoucher.SelectedIndex != -1)
             {
-                int maloaivc = Convert.ToInt32(((DataRowView)cbbLoaiVoucher.SelectedItem)["Maloaivc"]);
-                DataTable dt = VoucherBUS.Instance.GetVouchersByTypeWithJoin(maloaivc);
-                dgvMaGiamGia.DataSource = dt;
+                int maloaivc = ((LoaiVoucherDTO)cbbLoaiVoucher.SelectedItem).Maloaivc;
+                dsVoucher = VoucherBUS.Instance.GetVouchersByTypeWithJoin(maloaivc);
+                dgvMaGiamGia.DataSource = dsVoucher;
 
                 SetAllColumnHeaders(); // cập nhật lại tiêu đề cột
             }

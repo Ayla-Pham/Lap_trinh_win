@@ -31,4 +31,36 @@ namespace DTO
             ChiTiet = new List<ChiTietTraHangDTO>();
         }
     }
+
+    // Dòng hóa đơn hiển thị ở màn hình trả hàng (tên thuộc tính trùng tên cột lưới)
+    public class HoaDonTraHangDTO
+    {
+        public int Mahd { get; set; }
+        public DateTime Ngaylap { get; set; }
+        public int? Makh { get; set; }
+        public string Manv { get; set; }
+        public decimal TongTien { get; set; }
+    }
+
+    // Dòng danh sách phiếu trả hàng ở màn hình lịch sử
+    public class PhieuTraHangDongDTO
+    {
+        public int Matra { get; set; }
+        public DateTime Ngaytra { get; set; }
+        public string TenNhanVien { get; set; }
+        public int? Makh { get; set; }
+        public string Tenkh { get; set; }
+        public string Lydotra { get; set; }
+        public decimal TongTien { get; set; }
+    }
+
+    // Dòng chi tiết phiếu trả hàng ở màn hình lịch sử
+    public class ChiTietPhieuTraDongDTO
+    {
+        public int Masp { get; set; }
+        public string Tensp { get; set; }
+        public int Soluong { get; set; }
+        public decimal Dongia { get; set; }
+        public decimal ThanhTien { get; set; }
+    }
 }

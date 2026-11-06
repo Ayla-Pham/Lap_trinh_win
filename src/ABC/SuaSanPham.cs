@@ -17,6 +17,7 @@ namespace ABC
     {
         private DanhSachSanPhamBUS sanPhamBUS = DanhSachSanPhamBUS.Instance;
         private string maSP; // Mã sản phẩm đang sửa
+        private string dbImagePath; // Đường dẫn ảnh đang lưu trong DB
         private string selectedImagePath = null; // Đường dẫn ảnh mới (nếu có)
         public SuaSanPham(string maSP)
         {
@@ -64,6 +65,8 @@ namespace ABC
                     return;
                 }
 
+                dbImagePath = info.DuongDanAnh;
+
                 // 1. Tải thông tin cơ bản
                 txtTen.Text = info.TenSP;
                 // MaLoai trong DTO mapped as MaLoai
@@ -93,6 +96,15 @@ namespace ABC
         {
             try
             {
+                // Ưu tiên ảnh theo đường dẫn lưu trong DB
+                if (ImageHelper.ResolvePath(dbImagePath) != null)
+                {
+                    picAnhSua.Image?.Dispose();
+                    picAnhSua.Image = ImageHelper.LoadImage(dbImagePath);
+                    picAnhSua.SizeMode = PictureBoxSizeMode.Zoom;
+                    return;
+                }
+
                 string rootPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\.."));
                 string imagesFolder = Path.Combine(rootPath, "images", "products");
 
@@ -202,7 +214,9 @@ namespace ABC
                     TenSP = txtTen.Text.Trim(),
                     MaLoai = cbbLoaiSanPham.SelectedValue != null ? Convert.ToInt32(cbbLoaiSanPham.SelectedValue) : 0,
                     GiaBan = giaBan,
-                    DuongDanAnh = null,
+                    DuongDanAnh = selectedImagePath != null
+                        ? ImageHelper.DbPath(this.maSP + Path.GetExtension(selectedImagePath))
+                        : null,   // null = giữ ảnh cũ
                     CanhBaoTonKho = canhBao
                 };
 

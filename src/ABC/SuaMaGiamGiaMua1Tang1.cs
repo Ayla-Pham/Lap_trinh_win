@@ -29,11 +29,11 @@ namespace ABC
         private void LoadSanPhamTang()
         {
             dgvSanPhamTang.DataSource = Voucher1tang1BUS.Instance.TimSanPhamTang("");
-            if (dgvSanPhamTang.Columns.Contains("masp"))
-                dgvSanPhamTang.Columns["masp"].HeaderText = "Mã sản phẩm";
+            if (dgvSanPhamTang.Columns.Contains("Masp"))
+                dgvSanPhamTang.Columns["Masp"].HeaderText = "Mã sản phẩm";
 
-            if (dgvSanPhamTang.Columns.Contains("tensp"))
-                dgvSanPhamTang.Columns["tensp"].HeaderText = "Tên sản phẩm";
+            if (dgvSanPhamTang.Columns.Contains("Tensp"))
+                dgvSanPhamTang.Columns["Tensp"].HeaderText = "Tên sản phẩm";
 
             // Kích cỡ (kichco) removed from model — do not refer to it anymore.
         }
@@ -46,10 +46,10 @@ namespace ABC
         }
         private void LoadLoaiSanPhamMua()
         {
-            var dtLoaiSP = DataProvider.Instance.ExecuteQuery("SELECT maloai, tenloai FROM LOAISP");
-            cbbSanPhamMua.DataSource = dtLoaiSP;
-            cbbSanPhamMua.DisplayMember = "tenloai";
-            cbbSanPhamMua.ValueMember = "maloai";
+            var dsLoaiSP = DanhSachSanPhamBUS.Instance.GetLoaiSanPham();
+            cbbSanPhamMua.DataSource = dsLoaiSP;
+            cbbSanPhamMua.DisplayMember = "TenLoai";
+            cbbSanPhamMua.ValueMember = "MaLoai";
             cbbSanPhamMua.SelectedIndex = -1;
         }
         private void SuaMaGiamGiaMua1Tang1_Load(object sender, EventArgs e)
@@ -63,12 +63,12 @@ namespace ABC
             var row = Voucher1tang1BUS.Instance.GetVoucherByID(mavc);
             if (row != null)
             {
-                txtMaGiamGia.Text = row["Code"].ToString();
-                txtTenMaGiamGia.Text = row["TenMaGiamGia"].ToString();
-                txtHoaDonToiThieu.Text = row["DieuKien"].ToString();
-                cbbSanPhamMua.SelectedValue = Convert.ToInt32(row["maloai"]);
+                txtMaGiamGia.Text = row.Code;
+                txtTenMaGiamGia.Text = row.TenMaGiamGia ?? "";
+                txtHoaDonToiThieu.Text = row.DieuKien?.ToString() ?? "";
+                cbbSanPhamMua.SelectedValue = row.Maloai ?? -1;
 
-                int loaiVC = Convert.ToInt32(row["Maloaivc"]);
+                int loaiVC = row.Maloaivc;
                 cbbLoaiMaGiamGia.SelectedIndex = (loaiVC == 2) ? 0 : 1;
 
                 // Nếu là loại 4 thì load sản phẩm tặng đã chọn (match by masp only; sizes removed)
@@ -76,17 +76,14 @@ namespace ABC
                 {
                     var dsTang = Voucher1tang1BUS.Instance.GetSanPhamTangByVoucher(mavc);
 
-                    // Build set of masp strings from voucher details
-                    var maspSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (DataRow d in dsTang.Rows)
-                    {
-                        if (d.Table.Columns.Contains("masp") && d["masp"] != null)
-                            maspSet.Add(d["masp"].ToString());
-                    }
+                    // Tập mã sản phẩm đã được chọn cho voucher
+                    var maspSet = new HashSet<string>(
+                        dsTang.Select(d => d.Masp.ToString()),
+                        StringComparer.OrdinalIgnoreCase);
 
                     foreach (DataGridViewRow r in dgvSanPhamTang.Rows)
                     {
-                        string masp = r.Cells["masp"].Value?.ToString() ?? "";
+                        string masp = r.Cells["Masp"].Value?.ToString() ?? "";
                         if (!string.IsNullOrEmpty(masp) && maspSet.Contains(masp))
                         {
                             r.Selected = true;
@@ -181,7 +178,7 @@ namespace ABC
             // SelectedRows may include multiple; sizes removed so match by masp -> resolve to numeric Masp
             foreach (DataGridViewRow row in dgvSanPhamTang.SelectedRows)
             {
-                string masp = row.Cells["masp"].Value?.ToString();
+                string masp = row.Cells["Masp"].Value?.ToString();
 
                 if (string.IsNullOrEmpty(masp))
                 {
@@ -191,13 +188,13 @@ namespace ABC
 
                 if (loaiVC == 2)
                 {
-                    if (!dgvSanPhamTang.Columns.Contains("maloai") || row.Cells["maloai"].Value == null)
+                    if (!dgvSanPhamTang.Columns.Contains("Maloai") || row.Cells["Maloai"].Value == null)
                     {
                         message = $"Thiếu thông tin loại sản phẩm cho '{masp}'.";
                         return false;
                     }
 
-                    int maloaiSP = Convert.ToInt32(row.Cells["maloai"].Value);
+                    int maloaiSP = Convert.ToInt32(row.Cells["Maloai"].Value);
                     if (maloaiSP != maloai)
                     {
                         message = $"Sản phẩm tặng '{masp}' không cùng dòng với sản phẩm mua đã chọn.";

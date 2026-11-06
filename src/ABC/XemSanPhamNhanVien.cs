@@ -8,13 +8,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Microsoft.Data.SqlClient;
 using BUS;
+using DTO;
 namespace ABC
 {
     public partial class XemSanPhamNhanVien : Form
     {
-        private DataTable dtSanPham;
+        private List<SanPhamXemDTO> dsSanPham = new List<SanPhamXemDTO>();
 
         public XemSanPhamNhanVien()
         {
@@ -23,18 +23,18 @@ namespace ABC
 
         private void txtTimKiem_TextChanged(object sender, EventArgs e)
         {
-            if (dtSanPham != null)
-            {
-                string keyword = txtTimKiem.Text.Trim();
-                dtSanPham.DefaultView.RowFilter = $"[Tên sản phẩm] LIKE '%{keyword}%' OR [Mã sản phẩm] LIKE '%{keyword}%'";
-            }
+            string keyword = txtTimKiem.Text.Trim();
+            dgvSanPham.DataSource = dsSanPham
+                .Where(sp => sp.TenSP.Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                          || sp.MaSP.ToString().Contains(keyword))
+                .ToList();
 
         }
 
         private void XemSanPhamNhanVien_Load(object sender, EventArgs e)
         {
-            dtSanPham = DanhSachSanPhamBUS.Instance.GetSanPhamWithVoucher();
-            dgvSanPham.DataSource = dtSanPham;
+            dsSanPham = DanhSachSanPhamBUS.Instance.GetSanPhamWithVoucher();
+            dgvSanPham.DataSource = dsSanPham;
             SetupDataGridView();
             UIButton.ReplaceStandardButtonsWithIcons(this, Properties.Resources.exit, Properties.Resources.delete, Properties.Resources.refresh, Properties.Resources.done);
             UIText.ApplyButtonTextStyle(this);

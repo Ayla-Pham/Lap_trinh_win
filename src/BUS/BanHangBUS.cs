@@ -16,7 +16,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using Microsoft.Data.SqlClient;
 using iTextRectangle = iTextSharp.text.Rectangle;
 namespace BUS
 {
@@ -50,41 +49,17 @@ namespace BUS
             if (loaiVC != 2 && loaiVC != 4)
                 return ds;
 
-            DataTable dt;
-
             // Truy vấn sản phẩm tặng theo loại voucher
-            if (loaiVC == 2)
-            {
-                dt = dao.GetSanPhamTangByVoucher(mavc);
-            }
-            else
-            {
-                dt = dao.GetSanPhamTangByVoucher(mavc, maloaiGoc, loaiVC);
-            }
+            List<DanhSachSanPhamDTO> dsTang = (loaiVC == 2)
+                ? dao.GetSanPhamTangByVoucher(mavc)
+                : dao.GetSanPhamTangByVoucher(mavc, maloaiGoc, loaiVC);
 
-            if (dt.Rows.Count > 0)
+            var sp = dsTang.FirstOrDefault();
+            if (sp != null)
             {
-                var row = dt.Rows[0];
-                string maspStr = row["MaSP"].ToString().Trim();
-                int maspId = int.TryParse(maspStr, out int tmp) ? tmp : DanhSachSanPhamBUS.Instance.GetMasp(maspStr);
-
-                var sp = new DanhSachSanPhamDTO
-                {
-                    Masp = maspId,
-                    MaSP = maspStr,
-                    TenSP = row["TenSP"].ToString(),
-                    DuongDanAnh = row.Table.Columns.Contains("DuongDanAnh") ? row["DuongDanAnh"].ToString() : null,
-                    GiaBan = row.Table.Columns.Contains("GiaBan") ? Convert.ToDecimal(row["GiaBan"]) : 0m,
-                    Maloai = row.Table.Columns.Contains("Maloai") ? Convert.ToInt32(row["Maloai"]) : 0,
-                    TenLoai = row.Table.Columns.Contains("TenLoai") ? row["TenLoai"].ToString() : null,
-                    TrangThaiText = row.Table.Columns.Contains("TrangThaiText") ? row["TrangThaiText"].ToString() : null,
-                    SoLuongTon = row.Table.Columns.Contains("SoLuongTon") ? Convert.ToInt32(row["SoLuongTon"]) : 0
-                };
-
                 sp.SoLuong = 1;
                 sp.LaSanPhamTang = true;
                 sp.MaSanPhamGoc = maSanPhamGoc;
-
                 ds.Add(sp);
             }
 
@@ -130,7 +105,7 @@ namespace BUS
         }
 
         // Create invoice, invoice lines, apply voucher and decrement stock
-        // Uses local SqlConnection + SqlTransaction to keep operations atomic
+        // Giao dịch được thực hiện trong BanHangDAO để đảm bảo toàn vẹn dữ liệu
         public int XuatHoaDon(int? makh, string manv, List<BanHangDTO> danhSachBanHang, int? mavc)
         {
             if (string.IsNullOrWhiteSpace(manv)) throw new ArgumentException("manv is required.", nameof(manv));
@@ -141,102 +116,7 @@ namespace BUS
             decimal tienGiam = danhSachBanHang.Where(s => !s.LaSanPhamTang).Sum(s => s.TienGiam);
             decimal tongTienSauGiam = Math.Max(0, tongTienGoc - tienGiam);
 
-            using (SqlConnection conn = new SqlConnection(DataProvider.connectionSTR))
-            {
-                conn.Open();
-                using (SqlTransaction tran = conn.BeginTransaction())
-                {
-                    try
-                    {
-                        // 1) TaoHoaDon -> returns Mahd
-                        using (SqlCommand cmd = conn.CreateCommand())
-                        {
-                            cmd.Transaction = tran;
-                            cmd.CommandType = CommandType.StoredProcedure;
-                            cmd.CommandText = "sp_TaoHoaDon";
-                            cmd.Parameters.AddWithValue("@Makh", (object)makh ?? DBNull.Value);
-                            cmd.Parameters.AddWithValue("@Manv", manv);
-                            cmd.Parameters.AddWithValue("@TongTienGoc", tongTienGoc);
-                            cmd.Parameters.AddWithValue("@TienGiam", tienGiam);
-                            cmd.Parameters.AddWithValue("@TongTien", tongTienSauGiam);
-
-                            object result = cmd.ExecuteScalar();
-                            if (result == null) throw new Exception("Failed to create invoice (no id returned).");
-                            int mahd = Convert.ToInt32(result);
-
-                            // 2) ThemChiTietHoaDon for each product
-                            // Group lines by Masp + IsTang to avoid PK violation (Mahd,Masp,IsTang)
-                            var groupedLines = danhSachBanHang
-                                .GroupBy(s => new { s.Masp, IsTang = s.LaSanPhamTang ? 1 : 0 })
-                                .Select(g => new
-                                {
-                                    Masp = g.Key.Masp,
-                                    IsTang = g.Key.IsTang,
-                                    Soluong = g.Sum(x => x.SoLuong),
-                                    // Dongia should be consistent for grouped items; take first non-null
-                                    Dongia = g.First().GiaBan
-                                })
-                                .ToList();
-
-                            foreach (var line in groupedLines)
-                            {
-                                using (SqlCommand cmdCt = conn.CreateCommand())
-                                {
-                                    cmdCt.Transaction = tran;
-                                    cmdCt.CommandType = CommandType.StoredProcedure;
-                                    cmdCt.CommandText = "sp_ThemChiTietHoaDon";
-                                    cmdCt.Parameters.AddWithValue("@Mahd", mahd);
-                                    cmdCt.Parameters.AddWithValue("@Masp", line.Masp);
-                                    cmdCt.Parameters.AddWithValue("@Soluong", line.Soluong);
-                                    cmdCt.Parameters.AddWithValue("@Dongia", line.Dongia);
-                                    cmdCt.Parameters.AddWithValue("@IsTang", line.IsTang);
-
-                                    cmdCt.ExecuteNonQuery();
-                                }
-                            }
-
-                            // 3) Apply voucher if present
-                            if (mavc.HasValue)
-                            {
-                                using (SqlCommand cmdVc = conn.CreateCommand())
-                                {
-                                    cmdVc.Transaction = tran;
-                                    cmdVc.CommandType = CommandType.StoredProcedure;
-                                    cmdVc.CommandText = "sp_ApDungVoucher";
-                                    cmdVc.Parameters.AddWithValue("@Mavc", mavc.Value);
-                                    cmdVc.Parameters.AddWithValue("@Mahd", mahd);
-
-                                    cmdVc.ExecuteNonQuery();
-                                }
-                            }
-
-                            // 4) Decrement stock for non-gift items
-                            foreach (var sp in groupedLines.Where(l => l.IsTang == 0))
-                            {
-                                using (SqlCommand cmdTk = conn.CreateCommand())
-                                {
-                                    cmdTk.Transaction = tran;
-                                    cmdTk.CommandType = CommandType.StoredProcedure;
-                                    cmdTk.CommandText = "sp_TruTonKho";
-                                    cmdTk.Parameters.AddWithValue("@Masp", sp.Masp);
-                                    cmdTk.Parameters.AddWithValue("@SoLuong", sp.Soluong);
-
-                                    cmdTk.ExecuteNonQuery();
-                                }
-                            }
-
-                            // Commit
-                            tran.Commit();
-                            return mahd;
-                        }
-                    }
-                    catch
-                    {
-                        try { tran.Rollback(); } catch { }
-                        throw;
-                    }
-                }
-            }
+            return dao.XuatHoaDon(makh, manv, danhSachBanHang, mavc, tongTienGoc, tienGiam, tongTienSauGiam);
         }
 
         // Export invoice to PDF. Uses same font path convention as forms.

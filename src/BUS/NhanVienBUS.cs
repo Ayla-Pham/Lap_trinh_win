@@ -219,12 +219,12 @@ namespace BUS
         {
             return NhanVienDAO.LayTenNhanVien(mand);
         }
-        public static DataTable LayDanhSachNhanVien()
+        public static List<NhanVienGridDTO> LayDanhSachNhanVien()
         {
             return NhanVienDAO.LayDanhSachNhanVien();
         }
 
-        public static DataTable TimKiemNhanVien(string keyword)
+        public static List<NhanVienGridDTO> TimKiemNhanVien(string keyword)
         {
             return NhanVienDAO.TimKiemNhanVien(keyword);
         }

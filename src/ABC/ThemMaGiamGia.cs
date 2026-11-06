@@ -51,13 +51,12 @@ namespace ABC
         }
         private void LoadLoaiMaGG()
         {
-            DataTable dt = VoucherBUS.Instance.GetVoucherTypes();
+            // Chỉ lấy loại mã 1 (giảm %) và 3 (giảm theo giá trị thực)
+            var dsLoai = VoucherBUS.Instance.GetVoucherTypes()
+                .Where(l => l.Maloaivc == 1 || l.Maloaivc == 3)
+                .ToList();
 
-            // Lọc chỉ lấy loại mã 1 và 3
-            DataView dv = dt.DefaultView;
-            dv.RowFilter = "Maloaivc = 1 OR Maloaivc = 3";
-
-            cbbLoaiMaGG.DataSource = dv;
+            cbbLoaiMaGG.DataSource = dsLoai;
             cbbLoaiMaGG.DisplayMember = "Tenloai";
             cbbLoaiMaGG.ValueMember = "Maloaivc";
             cbbLoaiMaGG.SelectedIndex = -1;
@@ -65,9 +64,9 @@ namespace ABC
         }
         private void UpdateInputVisibility()
         {
-            if (cbbLoaiMaGG.SelectedItem is DataRowView row)
+            if (cbbLoaiMaGG.SelectedItem is LoaiVoucherDTO loai)
             {
-                int maloaivc = Convert.ToInt32(row["Maloaivc"]);
+                int maloaivc = loai.Maloaivc;
                 // 1 = Giảm %, 3 = Giảm theo giá trị thực
                 txtGiaTriGiam.Enabled = (maloaivc == 3);
                 numGiamPhanTram.Enabled = (maloaivc == 1);
@@ -79,8 +78,8 @@ namespace ABC
         private void LoadLoaiSanPham()
         {
             cbbLoaiSanPham.DataSource = DanhSachSanPhamBUS.Instance.GetLoaiSanPham();
-            cbbLoaiSanPham.DisplayMember = "tenloai";
-            cbbLoaiSanPham.ValueMember = "maloai";
+            cbbLoaiSanPham.DisplayMember = "TenLoai";
+            cbbLoaiSanPham.ValueMember = "MaLoai";
             cbbLoaiSanPham.SelectedIndex = -1;
         }
 

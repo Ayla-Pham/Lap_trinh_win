@@ -66,16 +66,7 @@ namespace ABC
                     Location = new Point(10, 10)
                 };
 
-                string rootPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\.."));
-                string fullPath = Path.Combine(rootPath, sp.DuongDanAnh ?? "");
-                if (File.Exists(fullPath))
-                {
-                    byte[] imageBytes = File.ReadAllBytes(fullPath);
-                    using (var ms = new MemoryStream(imageBytes))
-                    {
-                        pic.Image = Image.FromStream(ms);
-                    }
-                }
+                pic.Image = ImageHelper.LoadImage(sp.DuongDanAnh);
                 panel.Controls.Add(pic);
 
                 // Tên sản phẩm (no size)

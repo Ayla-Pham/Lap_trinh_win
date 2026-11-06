@@ -22,12 +22,12 @@ namespace BUS
 
         private VoucherBUS() { }
 
-        public DataTable GetAllVouchers()
+        public List<VoucherDTO> GetAllVouchers()
         {
             return VoucherDAO.Instance.GetAllVouchers();
         }
 
-        public DataTable GetVouchersByType(int maloaivc)
+        public List<VoucherDTO> GetVouchersByType(int maloaivc)
         {
             return VoucherDAO.Instance.GetVouchersByType(maloaivc);
         }
@@ -152,7 +152,7 @@ namespace BUS
             return VoucherDAO.GetIdFromCode(code) != null;
         }
 
-        public DataTable GetVouchersByDateRange(DateTime from, DateTime to)
+        public List<VoucherDTO> GetVouchersByDateRange(DateTime from, DateTime to)
         {
             return VoucherDAO.Instance.GetVouchersByDateRange(from, to);
         }
@@ -162,7 +162,7 @@ namespace BUS
             return VoucherDAO.GetCode(mavc);
         }
 
-        public DataTable GetVoucherTypes()
+        public List<LoaiVoucherDTO> GetVoucherTypes()
         {
             return VoucherDAO.Instance.GetVoucherTypes();
         }
@@ -211,12 +211,12 @@ namespace BUS
             }
         }
 
-        public DataTable GetAllVouchersWithJoin()
+        public List<VoucherHienThiDTO> GetAllVouchersWithJoin()
         {
             return VoucherDAO.Instance.GetAllVouchersWithJoin();
         }
 
-        public DataTable GetVouchersByTypeWithJoin(int maloaivc)
+        public List<VoucherHienThiDTO> GetVouchersByTypeWithJoin(int maloaivc)
         {
             return VoucherDAO.Instance.GetVouchersByTypeWithJoin(maloaivc);
         }

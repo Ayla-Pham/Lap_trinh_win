@@ -1,136 +1,110 @@
-﻿using DTO;
-using Microsoft.Data.SqlClient;
-using System;
-using System.Collections.Generic;
-using System.Data;
+﻿using DAO.Models;
+using DTO;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAO
 {
     public class ChamCongDAO
     {
-        private static ChamCongDAO instance;
+        private static ChamCongDAO? instance;
         public static ChamCongDAO Instance => instance ??= new ChamCongDAO();
-
-        private DataProvider provider = DataProvider.Instance;
 
         // Bắt đầu làm việc
         public bool InsertBatDauLam(string manv, DateTime gioBatDau)
         {
-            string query = @"
-                INSERT INTO CHAMCONG (Manv, Ngay, GioBatDau)
-                VALUES (@Manv, @Ngay, @GioBatDau)";
-            SqlParameter[] pr =
+            using var db = Db.Create();
+            db.Chamcongs.Add(new Chamcong
             {
-                new SqlParameter("@Manv", manv),
-                new SqlParameter("@Ngay", gioBatDau.Date),
-                new SqlParameter("@GioBatDau", gioBatDau)
-            };
-            return provider.ExecuteNonQuery(query, pr) > 0;
+                Manv = manv,
+                Ngay = DateOnly.FromDateTime(gioBatDau),
+                GioBatDau = gioBatDau
+            });
+            return db.SaveChanges() > 0;
         }
 
         // Kết thúc ca
         public bool UpdateChamCong(string manv, DateTime ngay, DateTime gioKetThuc, int tongPhut)
         {
-            string query = @"
-                UPDATE CHAMCONG
-                SET GioKetThuc = @GioKT, TongThoiGian = @Tong
-                WHERE Manv = @Manv AND Ngay = @Ngay AND GioKetThuc IS NULL";
-            SqlParameter[] pr =
-            {
-                new SqlParameter("@Manv", manv),
-                new SqlParameter("@Ngay", ngay),
-                new SqlParameter("@GioKT", gioKetThuc),
-                new SqlParameter("@Tong", tongPhut)
-            };
-            return provider.ExecuteNonQuery(query, pr) > 0;
+            using var db = Db.Create();
+            var d = DateOnly.FromDateTime(ngay);
+            var cc = db.Chamcongs.FirstOrDefault(c => c.Manv == manv && c.Ngay == d && c.GioKetThuc == null);
+            if (cc == null)
+                return false;
+
+            cc.GioKetThuc = gioKetThuc;
+            cc.TongThoiGian = tongPhut;
+            return db.SaveChanges() > 0;
         }
 
         // Lấy giờ bắt đầu chưa chấm công
         public DateTime? GetGioBatDauChuaChamCong(string manv, DateTime ngay)
         {
-            string query = @"
-                SELECT TOP 1 GioBatDau
-                FROM CHAMCONG
-                WHERE Manv = @Manv AND Ngay = @Ngay AND GioKetThuc IS NULL";
-            SqlParameter[] pr =
-            {
-                new SqlParameter("@Manv", manv),
-                new SqlParameter("@Ngay", ngay)
-            };
-            object rs = provider.ExecuteScalar(query, pr);
-            return rs == DBNull.Value ? null : (DateTime?)rs;
+            using var db = Db.Create();
+            var d = DateOnly.FromDateTime(ngay);
+            return db.Chamcongs
+                .Where(c => c.Manv == manv && c.Ngay == d && c.GioKetThuc == null)
+                .Select(c => (DateTime?)c.GioBatDau)
+                .FirstOrDefault();
         }
 
         // Tổng phút trong ngày
         public int GetTongPhutTrongNgay(string manv, DateTime ngay)
         {
-            string query = @"
-                SELECT ISNULL(SUM(TongThoiGian),0)
-                FROM CHAMCONG
-                WHERE Manv = @Manv AND Ngay = @Ngay";
-            SqlParameter[] pr =
-            {
-                new SqlParameter("@Manv", manv),
-                new SqlParameter("@Ngay", ngay)
-            };
-            return Convert.ToInt32(provider.ExecuteScalar(query, pr));
+            using var db = Db.Create();
+            var d = DateOnly.FromDateTime(ngay);
+            return db.Chamcongs
+                .Where(c => c.Manv == manv && c.Ngay == d)
+                .Sum(c => c.TongThoiGian ?? 0);
         }
 
         // Lịch sử chấm công
         public List<ChamCongDTO> GetLichSuChamCongChiTiet(string keyword, DateTime tuNgay, DateTime denNgay)
         {
-            string query = @"
-                SELECT 
+            using var db = Db.Create();
+            var tu = DateOnly.FromDateTime(tuNgay);
+            var den = DateOnly.FromDateTime(denNgay);
+
+            var q = db.Chamcongs.AsNoTracking()
+                .Where(c => c.Ngay >= tu && c.Ngay <= den);
+
+            if (!string.IsNullOrEmpty(keyword))
+                q = q.Where(c => c.ManvNavigation.Hoten.Contains(keyword) || c.Manv.Contains(keyword));
+
+            var rows = q.OrderByDescending(c => c.Ngay)
+                .Select(c => new
+                {
                     c.Idcc,
                     c.Manv,
-                    n.Hoten,
-                    n.Luong,
+                    c.ManvNavigation.Hoten,
+                    Luong = c.ManvNavigation.Luong ?? 0m,
                     c.Ngay,
                     c.GioBatDau,
                     c.GioKetThuc,
-                    c.TongThoiGian,
-                    (ISNULL(c.TongThoiGian,0) / 60.0) * n.Luong AS TongLuong
-                FROM CHAMCONG c
-                JOIN NHANVIEN n ON c.Manv = n.Manv
-                WHERE c.Ngay BETWEEN @TuNgay AND @DenNgay
-                  AND (@Kw = '' OR n.Hoten LIKE @Kw OR c.Manv LIKE @Kw)
-                ORDER BY c.Ngay DESC";
+                    c.TongThoiGian
+                })
+                .ToList();
 
-            SqlParameter[] pr =
+            return rows.Select(r => new ChamCongDTO
             {
-                new SqlParameter("@TuNgay", tuNgay),
-                new SqlParameter("@DenNgay", denNgay),
-                new SqlParameter("@Kw", $"%{keyword}%")
-            };
-
-            DataTable dt = provider.ExecuteQuery(query, pr);
-            List<ChamCongDTO> list = new();
-
-            foreach (DataRow r in dt.Rows)
-            {
-                list.Add(new ChamCongDTO
-                {
-                    Id = Convert.ToInt32(r["Idcc"]),
-                    Manv = r["Manv"].ToString(),
-                    TenNhanVien = r["Hoten"].ToString(),
-                    Luong = Convert.ToDecimal(r["Luong"]),
-                    Ngay = Convert.ToDateTime(r["Ngay"]),
-                    GioBatDau = Convert.ToDateTime(r["GioBatDau"]),
-                    GioKetThuc = r["GioKetThuc"] == DBNull.Value ? null : (DateTime?)r["GioKetThuc"],
-                    TongThoiGian = r["TongThoiGian"] == DBNull.Value ? null : Convert.ToInt32(r["TongThoiGian"]),
-                    TongLuong = Convert.ToDecimal(r["TongLuong"])
-                });
-            }
-
-            return list;
+                Id = r.Idcc,
+                Manv = r.Manv,
+                TenNhanVien = r.Hoten,
+                Luong = r.Luong,
+                Ngay = r.Ngay.ToDateTime(TimeOnly.MinValue),
+                GioBatDau = r.GioBatDau,
+                GioKetThuc = r.GioKetThuc,
+                TongThoiGian = r.TongThoiGian,
+                TongLuong = (r.TongThoiGian ?? 0) / 60m * r.Luong
+            }).ToList();
         }
 
         public decimal GetLuongTheoGio(string manv)
         {
-            string query = "SELECT Luong FROM NHANVIEN WHERE Manv = @Manv";
-            SqlParameter[] pr = { new SqlParameter("@Manv", manv) };
-            object rs = provider.ExecuteScalar(query, pr);
-            return rs == DBNull.Value ? 0 : Convert.ToDecimal(rs);
+            using var db = Db.Create();
+            return db.Nhanviens
+                .Where(n => n.Manv == manv)
+                .Select(n => n.Luong ?? 0m)
+                .FirstOrDefault();
         }
     }
 }

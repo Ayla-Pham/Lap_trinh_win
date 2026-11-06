@@ -23,10 +23,10 @@ namespace BUS
             catch { return new List<SanPhamTonKhoDTO>(); }
         }
 
-        public static DataTable LayNhaCungCap()
+        public static List<NhaCungCapDTO> LayNhaCungCap()
         {
             try { return KhoDAO.LayNhaCungCap(); }
-            catch { return new DataTable(); }
+            catch { return new List<NhaCungCapDTO>(); }
         }
 
         public static (bool success, string message) XuLyNhapKho(int? maNCC, string maNV, List<CartItemDTO> listnhapkho)

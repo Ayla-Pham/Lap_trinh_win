@@ -126,11 +126,7 @@ namespace ABC
                         Cursor = Cursors.Hand
                     };
 
-                    string fullPath = Path.Combine(rootPath, spDauTien.DuongDanAnh ?? "");
-                    if (File.Exists(fullPath))
-                        pic.Image = Image.FromFile(fullPath);
-                    else
-                        pic.Image = Properties.Resources.no_image;
+                    pic.Image = ImageHelper.LoadImage(spDauTien.DuongDanAnh);
 
                     Label lblTen = new Label
                     {
@@ -330,16 +326,7 @@ namespace ABC
                 Location = new Point(10, 10)
             };
 
-            string rootPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\.."));
-            string fullPath = Path.Combine(rootPath, sp.DuongDanAnh ?? "");
-            if (File.Exists(fullPath))
-            {
-                byte[] imageBytes = File.ReadAllBytes(fullPath);
-                using (var ms = new MemoryStream(imageBytes))
-                {
-                    pic.Image = Image.FromStream(ms);
-                }
-            }
+            pic.Image = ImageHelper.LoadImage(sp.DuongDanAnh);
 
             Label lblTen = new Label
             {
@@ -570,16 +557,7 @@ namespace ABC
                 Location = new Point(10, 10)
             };
 
-            string rootPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\.."));
-            string fullPath = Path.Combine(rootPath, sp.DuongDanAnh ?? "");
-            if (File.Exists(fullPath))
-            {
-                byte[] imageBytes = File.ReadAllBytes(fullPath);
-                using (var ms = new MemoryStream(imageBytes))
-                {
-                    pic.Image = Image.FromStream(ms);
-                }
-            }
+            pic.Image = ImageHelper.LoadImage(sp.DuongDanAnh);
 
             Label lblTen = new Label
             {

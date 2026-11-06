@@ -1,210 +1,233 @@
-﻿using DTO;
-using System.Data;
+﻿using DAO.Models;
 using DTO;
-using System.Data;
-using System;
-using System.Collections.Generic;
-using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAO
 {
     public class VoucherDAO
     {
-        private static VoucherDAO instance;
-        public static VoucherDAO Instance
+        private static VoucherDAO? instance;
+        public static VoucherDAO Instance => instance ??= new VoucherDAO();
+
+        private static DateOnly ToDateOnly(DateTime d) => DateOnly.FromDateTime(d);
+
+        private static Voucher ToEntity(VoucherDTO v) => new Voucher
         {
-            get
-            {
-                if (instance == null)
-                    instance = new VoucherDAO();
-                return instance;
-            }
+            Code = v.Code,
+            TenMaGiamGia = v.TenMaGiamGia,
+            Giatri = v.Giatri,
+            Ngaybd = ToDateOnly(v.Ngaybd),
+            Ngaykt = ToDateOnly(v.Ngaykt),
+            DieuKien = v.DieuKien,
+            Maloaivc = v.Maloaivc,
+            Maloai = v.Maloai
+        };
+
+        private static void CopyTo(VoucherDTO v, Voucher e)
+        {
+            e.Code = v.Code;
+            e.TenMaGiamGia = v.TenMaGiamGia;
+            e.Giatri = v.Giatri;
+            e.Ngaybd = ToDateOnly(v.Ngaybd);
+            e.Ngaykt = ToDateOnly(v.Ngaykt);
+            e.DieuKien = v.DieuKien;
+            e.Maloaivc = v.Maloaivc;
+            e.Maloai = v.Maloai;
         }
 
-        private DataProvider provider = DataProvider.Instance;
+        private static IQueryable<VoucherDTO> ToDTO(IQueryable<Voucher> q) =>
+            q.Select(v => new VoucherDTO
+            {
+                Mavc = v.Mavc,
+                Code = v.Code,
+                TenMaGiamGia = v.TenMaGiamGia,
+                Giatri = v.Giatri,
+                Ngaybd = v.Ngaybd.ToDateTime(TimeOnly.MinValue),
+                Ngaykt = v.Ngaykt.ToDateTime(TimeOnly.MinValue),
+                DieuKien = v.DieuKien,
+                Maloaivc = v.Maloaivc,
+                Maloai = v.Maloai
+            });
 
         public static string GetCode(int mavc)
         {
-            SqlParameter[] parameters = { new SqlParameter("@Mavc", mavc) };
-            DataTable dt = DataProvider.Instance.ExecuteStoredProcedure("sp_GetVoucherById", parameters);
-            if (dt.Rows.Count == 0) return "";
-            return dt.Rows[0]["Code"]?.ToString() ?? "";
+            using var db = Db.Create();
+            return db.Vouchers.Where(v => v.Mavc == mavc).Select(v => v.Code).FirstOrDefault() ?? "";
         }
 
         public static int? GetIdFromCode(string code)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Code", code ?? string.Empty)
-            };
-            object result = DataProvider.Instance.ExecuteScalarStoredProcedure("sp_GetIdFromCode", parameters);
-            return result != null ? (int?)Convert.ToInt32(result) : null;
+            using var db = Db.Create();
+            string c = code ?? string.Empty;
+            return db.Vouchers.Where(v => v.Code == c).Select(v => (int?)v.Mavc).FirstOrDefault();
         }
 
         public bool AddVoucher(VoucherDTO voucher)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Code", voucher.Code),
-                new SqlParameter("@TenMaGiamGia", (object)voucher.TenMaGiamGia ?? DBNull.Value),
-                new SqlParameter("@Giatri", voucher.Giatri),
-                new SqlParameter("@Ngaybd", voucher.Ngaybd),
-                new SqlParameter("@Ngaykt", voucher.Ngaykt),
-                new SqlParameter("@DieuKien", (object)voucher.DieuKien ?? DBNull.Value),
-                new SqlParameter("@Maloaivc", voucher.Maloaivc),
-                new SqlParameter("@Maloai", (object)voucher.Maloai ?? DBNull.Value)
-            };
-
-            object result = provider.ExecuteScalarStoredProcedure("sp_InsertVoucher", parameters);
-            return result != null && Convert.ToInt32(result) > 0;
+            return AddVoucherAndReturnID(voucher) > 0;
         }
 
         public bool AddVoucherChiTiet(int mavc, int masp)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Mavc", mavc),
-                new SqlParameter("@Masp", masp)
-            };
-            object result = provider.ExecuteScalarStoredProcedure("sp_InsertChiTietVC", parameters);
-            return result != null && Convert.ToInt32(result) > 0;
+            using var db = Db.Create();
+            var v = db.Vouchers.Include(x => x.Masps).FirstOrDefault(x => x.Mavc == mavc);
+            var sp = db.Sanphams.FirstOrDefault(s => s.Masp == masp);
+            if (v == null || sp == null) return false;
+            if (v.Masps.Any(s => s.Masp == masp)) return false;
+
+            v.Masps.Add(sp);
+            return db.SaveChanges() > 0;
         }
 
         public bool CheckChiTietVoucher(int mavc, int masp)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Mavc", mavc),
-                new SqlParameter("@Masp", masp)
-            };
-            object result = provider.ExecuteScalarStoredProcedure("sp_CheckChiTietVC", parameters);
-            return result != null && Convert.ToInt32(result) > 0;
+            using var db = Db.Create();
+            return db.Vouchers.Any(v => v.Mavc == mavc && v.Masps.Any(s => s.Masp == masp));
         }
 
-        public VoucherDTO GetVoucherByID(int mavc)
+        public VoucherDTO? GetVoucherByID(int mavc)
         {
-            SqlParameter[] parameters = { new SqlParameter("@Mavc", mavc) };
-            DataTable dt = provider.ExecuteStoredProcedure("sp_GetVoucherById", parameters);
-            if (dt.Rows.Count == 0) return null;
-
-            DataRow r = dt.Rows[0];
-            return new VoucherDTO
-            {
-                Mavc = (int)r["Mavc"],
-                Code = r["Code"].ToString(),
-                TenMaGiamGia = r.IsNull("TenMaGiamGia") ? null : r["TenMaGiamGia"].ToString(),
-                Giatri = (decimal)r["Giatri"],
-                Ngaybd = (DateTime)r["Ngaybd"],
-                Ngaykt = (DateTime)r["Ngaykt"],
-                DieuKien = r["DieuKien"] != DBNull.Value ? (decimal?)r["DieuKien"] : null,
-                Maloaivc = (int)r["Maloaivc"],
-                Maloai = r["maloai"] != DBNull.Value ? (int?)r["maloai"] : null
-            };
+            using var db = Db.Create();
+            return ToDTO(db.Vouchers.AsNoTracking().Where(v => v.Mavc == mavc)).FirstOrDefault();
         }
 
         public bool UpdateVoucher(VoucherDTO voucher)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@Mavc", voucher.Mavc),
-                new SqlParameter("@Code", voucher.Code),
-                new SqlParameter("@TenMaGiamGia", (object)voucher.TenMaGiamGia ?? DBNull.Value),
-                new SqlParameter("@Giatri", voucher.Giatri),
-                new SqlParameter("@Ngaybd", voucher.Ngaybd),
-                new SqlParameter("@Ngaykt", voucher.Ngaykt),
-                new SqlParameter("@DieuKien", (object)voucher.DieuKien ?? DBNull.Value),
-                new SqlParameter("@Maloaivc", voucher.Maloaivc),
-                new SqlParameter("@Maloai", (object)voucher.Maloai ?? DBNull.Value)
-            };
-
-            object res = provider.ExecuteScalarStoredProcedure("sp_UpdateVoucher", parameters);
-            return res != null && Convert.ToInt32(res) > 0;
+            return UpdateVoucherAndReturnAffectedRows(voucher) > 0;
         }
 
         public bool DeleteVoucher(int mavc)
         {
-            SqlParameter[] parameters = { new SqlParameter("@Mavc", mavc) };
-            object res = provider.ExecuteScalarStoredProcedure("sp_DeleteVoucher", parameters);
-            return res != null && Convert.ToInt32(res) > 0;
+            using var db = Db.Create();
+            var v = db.Vouchers.Include(x => x.Masps).Include(x => x.Mahds).FirstOrDefault(x => x.Mavc == mavc);
+            if (v == null) return false;
+            db.Vouchers.Remove(v);
+            return db.SaveChanges() > 0;
         }
 
-        public DataTable GetAllVouchers()
+        public List<VoucherDTO> GetAllVouchers()
         {
-            return provider.ExecuteStoredProcedure("sp_GetAllVouchers", null);
+            using var db = Db.Create();
+            return ToDTO(db.Vouchers.AsNoTracking().OrderBy(v => v.Mavc)).ToList();
         }
 
-        public DataTable GetAllVouchersWithJoin()
+        public List<VoucherDTO> GetVouchersByType(int maloaivc)
         {
-            return provider.ExecuteStoredProcedure("sp_GetAllVouchersWithJoin", null);
+            using var db = Db.Create();
+            return ToDTO(db.Vouchers.AsNoTracking().Where(v => v.Maloaivc == maloaivc).OrderBy(v => v.Mavc)).ToList();
         }
 
-        public DataTable GetVouchersByType(int maloaivc)
+        // Danh sách voucher kèm tên loại, loại sản phẩm, sản phẩm áp dụng / tặng
+        private static List<VoucherHienThiDTO> HienThi(IQueryable<Voucher> q)
         {
-            SqlParameter[] parameters = { new SqlParameter("@Maloaivc", maloaivc) };
-            return provider.ExecuteStoredProcedure("sp_GetVouchersByType", parameters);
+            var rows = q.AsNoTracking()
+                .OrderBy(v => v.Mavc)
+                .Select(v => new
+                {
+                    v.Mavc,
+                    v.Code,
+                    v.TenMaGiamGia,
+                    v.Giatri,
+                    v.Ngaybd,
+                    v.Ngaykt,
+                    v.DieuKien,
+                    v.Maloaivc,
+                    v.Maloai,
+                    TenLoaiVouCher = v.MaloaivcNavigation.Tenloai,
+                    TenLoaiSP = v.MaloaiNavigation != null ? v.MaloaiNavigation.Tenloai : null,
+                    SanPham = v.Masps.Select(s => s.Tensp).ToList(),
+                    LoaiSPCuaSanPham = v.Masps.Select(s => s.MaloaiNavigation.Tenloai).Distinct().ToList()
+                })
+                .ToList();
+
+            return rows.Select(r =>
+            {
+                bool laMua1Tang1 = r.Maloaivc == 2 || r.Maloaivc == 4;
+                return new VoucherHienThiDTO
+                {
+                    Mavc = r.Mavc,
+                    Code = r.Code,
+                    TenMaGiamGia = r.TenMaGiamGia,
+                    Giatri = r.Giatri,
+                    Ngaybd = r.Ngaybd.ToDateTime(TimeOnly.MinValue),
+                    Ngaykt = r.Ngaykt.ToDateTime(TimeOnly.MinValue),
+                    DieuKien = r.DieuKien,
+                    Maloaivc = r.Maloaivc,
+                    Maloai = r.Maloai,
+                    TenLoaiVouCher = r.TenLoaiVouCher,
+                    TenLoaiSanPhamApDung = r.TenLoaiSP,
+                    TenLoaiSanPhamTang = laMua1Tang1 ? string.Join(", ", r.LoaiSPCuaSanPham) : null,
+                    SanPhamApDung = laMua1Tang1 ? null : string.Join(", ", r.SanPham),
+                    SanPhamTang = laMua1Tang1 ? string.Join(", ", r.SanPham) : null
+                };
+            }).ToList();
         }
 
-        public DataTable GetVouchersByTypeWithJoin(int maloaivc)
+        public List<VoucherHienThiDTO> GetAllVouchersWithJoin()
         {
-            SqlParameter[] parameters = { new SqlParameter("@Maloaivc", maloaivc) };
-            return provider.ExecuteStoredProcedure("sp_GetVouchersByTypeWithJoin", parameters);
+            using var db = Db.Create();
+            return HienThi(db.Vouchers);
         }
 
-        public DataTable GetVouchersByDateRange(DateTime from, DateTime to)
+        public List<VoucherHienThiDTO> GetVouchersByTypeWithJoin(int maloaivc)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@FromDate", from),
-                new SqlParameter("@ToDate", to)
-            };
-            return provider.ExecuteStoredProcedure("sp_GetVouchersByDateRange", parameters);
+            using var db = Db.Create();
+            return HienThi(db.Vouchers.Where(v => v.Maloaivc == maloaivc));
         }
 
-        public DataTable GetVoucherTypes()
+        public List<VoucherDTO> GetVouchersByDateRange(DateTime from, DateTime to)
         {
-            return provider.ExecuteStoredProcedure("sp_GetVoucherTypes", null);
+            using var db = Db.Create();
+            var f = ToDateOnly(from);
+            var t = ToDateOnly(to);
+            // voucher có thời gian hiệu lực giao với khoảng [from, to]
+            return ToDTO(db.Vouchers.AsNoTracking()
+                    .Where(v => v.Ngaybd <= t && v.Ngaykt >= f)
+                    .OrderBy(v => v.Mavc))
+                .ToList();
+        }
+
+        public List<LoaiVoucherDTO> GetVoucherTypes()
+        {
+            using var db = Db.Create();
+            return db.Kieuvcs
+                .AsNoTracking()
+                .OrderBy(k => k.Maloaivc)
+                .Select(k => new LoaiVoucherDTO { Maloaivc = k.Maloaivc, Tenloai = k.Tenloai })
+                .ToList();
         }
 
         public int AddVoucherAndReturnID(VoucherDTO voucher)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Code", voucher.Code),
-                new SqlParameter("@TenMaGiamGia", (object)voucher.TenMaGiamGia ?? DBNull.Value),
-                new SqlParameter("@Giatri", voucher.Giatri),
-                new SqlParameter("@Ngaybd", voucher.Ngaybd),
-                new SqlParameter("@Ngaykt", voucher.Ngaykt),
-                new SqlParameter("@DieuKien", (object)voucher.DieuKien ?? DBNull.Value),
-                new SqlParameter("@Maloaivc", voucher.Maloaivc),
-                new SqlParameter("@Maloai", (object)voucher.Maloai ?? DBNull.Value)
-            };
-
-            object result = provider.ExecuteScalarStoredProcedure("sp_InsertVoucher", parameters);
-            return result != null ? Convert.ToInt32(result) : -1;
+            using var db = Db.Create();
+            var e = ToEntity(voucher);
+            db.Vouchers.Add(e);
+            db.SaveChanges();
+            return e.Mavc;
         }
 
         public int UpdateVoucherAndReturnAffectedRows(VoucherDTO voucher)
         {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Mavc", voucher.Mavc),
-                new SqlParameter("@Code", voucher.Code),
-                new SqlParameter("@TenMaGiamGia", (object)voucher.TenMaGiamGia ?? DBNull.Value),
-                new SqlParameter("@Giatri", voucher.Giatri),
-                new SqlParameter("@Ngaybd", voucher.Ngaybd),
-                new SqlParameter("@Ngaykt", voucher.Ngaykt),
-                new SqlParameter("@DieuKien", (object)voucher.DieuKien ?? DBNull.Value),
-                new SqlParameter("@Maloaivc", voucher.Maloaivc),
-                new SqlParameter("@Maloai", (object)voucher.Maloai ?? DBNull.Value)
-            };
-
-            object res = provider.ExecuteScalarStoredProcedure("sp_UpdateVoucher", parameters);
-            return res != null ? Convert.ToInt32(res) : 0;
+            using var db = Db.Create();
+            var e = db.Vouchers.FirstOrDefault(v => v.Mavc == voucher.Mavc);
+            if (e == null) return 0;
+            CopyTo(voucher, e);
+            return db.SaveChanges();
         }
 
+        // Thay toàn bộ sản phẩm của voucher bằng danh sách mới
         public bool UpdateVoucherChiTiet(int mavc, List<int> maspList)
         {
-            SqlParameter[] delParams = { new SqlParameter("@Mavc", mavc) };
-            provider.ExecuteNonQueryStoredProcedure("sp_DeleteChiTietVC", delParams);
+            using var db = Db.Create();
+            var v = db.Vouchers.Include(x => x.Masps).FirstOrDefault(x => x.Mavc == mavc);
+            if (v == null) return false;
 
-            foreach (int masp in maspList)
-            {
-                AddVoucherChiTiet(mavc, masp);
-            }
+            v.Masps.Clear();
+            var sanPhams = db.Sanphams.Where(s => maspList.Contains(s.Masp)).ToList();
+            foreach (var sp in sanPhams)
+                v.Masps.Add(sp);
 
+            db.SaveChanges();
             return true;
         }
     }

@@ -170,23 +170,11 @@ namespace ABC
                 }
 
                 // 4. Gán ảnh cho từng dòng
-                string rootPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\.."));
-
                 foreach (DataGridViewRow row in dgvDanhSachSanPham.Rows)
                 {
                     if (dgvDanhSachSanPham.Columns.Contains("DuongDanAnh") && row.Cells["DuongDanAnh"] != null && row.Cells["DuongDanAnh"].Value != null)
                     {
-                        string relativePath = row.Cells["DuongDanAnh"].Value.ToString();
-                        string fullPath = Path.Combine(rootPath, relativePath);
-
-                        if (File.Exists(fullPath))
-                        {
-                            row.Cells["Anh"].Value = System.Drawing.Image.FromFile(fullPath);
-                        }
-                        else
-                        {
-                            row.Cells["Anh"].Value = Properties.Resources.no_image;
-                        }
+                        row.Cells["Anh"].Value = ImageHelper.LoadImage(row.Cells["DuongDanAnh"].Value.ToString());
                     }
                     else
                     {

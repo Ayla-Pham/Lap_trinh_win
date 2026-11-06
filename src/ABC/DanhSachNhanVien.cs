@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using BUS;
+using DTO;
 
 namespace ABC
 {
@@ -88,10 +89,7 @@ namespace ABC
         {
             try
             {
-                DataTable dt = NhanVienBUS.LayDanhSachNhanVien();
-                if (dt.Columns.Contains("Mand") && !dt.Columns.Contains("Manv"))
-                    dt.Columns["Mand"].ColumnName = "Manv";
-                dgvNhanVien.DataSource = dt;
+                dgvNhanVien.DataSource = NhanVienBUS.LayDanhSachNhanVien();
 
                 if (dgvNhanVien.Columns.Contains("Manv"))
                     dgvNhanVien.Columns["Manv"].HeaderText = "Mã nhân viên";
@@ -131,28 +129,14 @@ namespace ABC
 
             try
             {
-                DataTable dtKetQua = new DataTable();
-                if (!string.IsNullOrEmpty(keyword))
-                {
-                    dtKetQua = NhanVienBUS.TimKiemNhanVien(keyword);
-                }
-                else
-                {
-                    dtKetQua = NhanVienBUS.LayDanhSachNhanVien();
-                }
+                List<NhanVienGridDTO> dsKetQua = !string.IsNullOrEmpty(keyword)
+                    ? NhanVienBUS.TimKiemNhanVien(keyword)
+                    : NhanVienBUS.LayDanhSachNhanVien();
 
-                if (tieuChiLoc != "Tất cả" && dtKetQua.Rows.Count > 0)
-                {
-                    DataView dv = new DataView(dtKetQua);
+                if (tieuChiLoc != "Tất cả")
+                    dsKetQua = dsKetQua.Where(nv => nv.Vitri == tieuChiLoc).ToList();
 
-                    dv.RowFilter = string.Format("Vitri = '{0}'", tieuChiLoc);
-                    dgvNhanVien.DataSource = dv.ToTable();
-                }
-                else
-                {
-
-                    dgvNhanVien.DataSource = dtKetQua;
-                }
+                dgvNhanVien.DataSource = dsKetQua;
             }
             catch (Exception ex)
             {

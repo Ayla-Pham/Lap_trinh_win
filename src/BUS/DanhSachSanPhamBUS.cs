@@ -31,7 +31,7 @@ namespace BUS
             return DanhSachSanPhamDAO.Instance.SearchSanPham(searchType, searchTerm);
         }
 
-        public DataTable GetLoaiSanPham()
+        public List<LoaiSPDTO> GetLoaiSanPham()
         {
             return DanhSachSanPhamDAO.Instance.GetLoaiSanPham();
         }
@@ -46,12 +46,7 @@ namespace BUS
             return DanhSachSanPhamDAO.Instance.GetChiTietVoucher(mavc);
         }
 
-        public DataTable GetSanPhamTable()
-        {
-            return DanhSachSanPhamDAO.Instance.GetSanPhamTable();
-        }
-
-        public DataTable GetSanPhamWithVoucher()
+        public List<SanPhamXemDTO> GetSanPhamWithVoucher()
         {
             return DanhSachSanPhamDAO.Instance.GetSanPhamWithVoucher();
         }
@@ -62,7 +57,7 @@ namespace BUS
             return DanhSachSanPhamDAO.Instance.GetSanPhamTheoMaVaKichCo(maSP, kichCo);
         }
 
-        public DataTable GetSanPhamTangByVoucher(int mavc)
+        public List<SanPhamTangDTO> GetSanPhamTangByVoucher(int mavc)
         {
             return Voucher1tang1DAO.Instance.GetSanPhamTangByVoucher(mavc);
         }

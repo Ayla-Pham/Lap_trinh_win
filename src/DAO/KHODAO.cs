@@ -1,324 +1,221 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Data.SqlClient;
-using System.Configuration;
+﻿using DAO.Models;
 using DTO;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAO
 {
     public class KhoDAO
     {
-        private static string connStr = ConfigurationManager.ConnectionStrings["QUANLICHTL"].ConnectionString;
-
         // --- PHẦN 1: TỒN KHO ---
+        private static IQueryable<SanPhamTonKhoDTO> ToTonKho(IQueryable<Sanpham> q) =>
+            q.OrderBy(s => s.Masp).Select(s => new SanPhamTonKhoDTO
+            {
+                MaSP = s.Masp,
+                TenSP = s.Tensp,
+                SoLuongTon = s.Soluongton,
+                CanhBaoTon = s.Canhbaotonkho,
+                GiaBan = s.Giaban
+            });
+
         public static List<SanPhamTonKhoDTO> LayDanhSachTonKho()
         {
-            var list = new List<SanPhamTonKhoDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayDanhSachTonKho", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new SanPhamTonKhoDTO
-                            {
-                                MaSP = Convert.ToInt32(r["Masp"]),
-                                TenSP = r["Tensp"].ToString(),
-                                SoLuongTon = Convert.ToInt32(r["Soluongton"]),
-                                CanhBaoTon = Convert.ToInt32(r["Canhbaotonkho"]),
-                                GiaBan = Convert.ToDecimal(r["Giaban"])
-                            });
-                        }
-                    }
-                }
-            }
-            return list;
+            using var db = Db.Create();
+            return ToTonKho(db.Sanphams.AsNoTracking().Where(s => s.Trangthaisp)).ToList();
         }
 
         public static List<SanPhamTonKhoDTO> TimKiemTonKho(string keyword)
         {
-            var list = new List<SanPhamTonKhoDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_TimKiemTonKho", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@TuKhoa", keyword);
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new SanPhamTonKhoDTO
-                            {
-                                MaSP = Convert.ToInt32(r["Masp"]),
-                                TenSP = r["Tensp"].ToString(),
-                                SoLuongTon = Convert.ToInt32(r["Soluongton"]),
-                                CanhBaoTon = Convert.ToInt32(r["Canhbaotonkho"]),
-                                GiaBan = Convert.ToDecimal(r["Giaban"])
-                            });
-                        }
-                    }
-                }
-            }
-            return list;
+            using var db = Db.Create();
+            return ToTonKho(db.Sanphams.AsNoTracking()
+                    .Where(s => s.Trangthaisp
+                                && (s.Tensp.Contains(keyword) || s.Masp.ToString().Contains(keyword))))
+                .ToList();
         }
 
-        public static DataTable LayNhaCungCap()
+        public static List<NhaCungCapDTO> LayNhaCungCap()
         {
-            DataTable dt = new DataTable();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayNhaCungCap", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    using (SqlDataAdapter da = new SqlDataAdapter(cmd))
-                    {
-                        da.Fill(dt);
-                    }
-                }
-            }
-            return dt;
+            using var db = Db.Create();
+            return db.Nhacungcaps
+                .AsNoTracking()
+                .Select(n => new NhaCungCapDTO { Manhacc = n.Manhacc, Tennhacc = n.Tennhacc })
+                .ToList();
         }
 
         // --- PHẦN 2: NHẬP KHO (TRANSACTION) ---
         public static bool NhapKho(int maNCC, string maNV, List<CartItemDTO> listnhapkho)
         {
-            using (SqlConnection conn = new SqlConnection(connStr))
+            using var db = Db.Create();
+            using var trans = db.Database.BeginTransaction();
+            try
             {
-                conn.Open();
-                SqlTransaction trans = conn.BeginTransaction();
+                // 1. Tạo phiếu nhập
+                var phieu = new Nhapkho { Manhacc = maNCC, Manv = maNV, Ngaynhap = DateTime.Now };
+                db.Nhapkhos.Add(phieu);
+                db.SaveChanges();
 
-                try
+                // 2. Thêm chi tiết và cộng tồn kho
+                foreach (var item in listnhapkho)
                 {
-                    int maNK = 0;
-                    using (SqlCommand cmd = new SqlCommand("sp_TaoPhieuNhap", conn, trans))
+                    db.Chitietnhapkhos.Add(new Chitietnhapkho
                     {
-                        cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.Parameters.AddWithValue("@Manhacc", maNCC);
-                        cmd.Parameters.AddWithValue("@Manv", maNV);
+                        Mank = phieu.Mank,
+                        Masp = item.MaSP,
+                        Soluongnhap = item.SoLuong,
+                        Gianhap = item.DonGia
+                    });
 
-                        SqlParameter outParam = new SqlParameter("@Mank", SqlDbType.Int)
-                        {
-                            Direction = ParameterDirection.Output
-                        };
-                        cmd.Parameters.Add(outParam);
-
-                        cmd.ExecuteNonQuery();
-                        maNK = (int)outParam.Value;
-                    }
-
-                    // 2. Thêm chi tiết (Gọi SP cho từng món)
-                    foreach (var item in listnhapkho)
-                    {
-                        using (SqlCommand cmd = new SqlCommand("sp_ThemChiTietNhap", conn, trans))
-                        {
-                            cmd.CommandType = CommandType.StoredProcedure;
-                            cmd.Parameters.AddWithValue("@Mank", maNK);
-                            cmd.Parameters.AddWithValue("@Masp", item.MaSP);
-                            cmd.Parameters.AddWithValue("@Soluong", item.SoLuong);
-                            cmd.Parameters.AddWithValue("@Gianhap", item.DonGia);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-
-                    trans.Commit();
-                    return true;
+                    var sp = db.Sanphams.First(s => s.Masp == item.MaSP);
+                    sp.Soluongton += item.SoLuong;
                 }
-                catch (Exception)
-                {
-                    trans.Rollback();
-                    throw; // Ném lỗi về BUS xử lý
-                }
+                db.SaveChanges();
+
+                trans.Commit();
+                return true;
+            }
+            catch (Exception)
+            {
+                trans.Rollback();
+                throw; // Ném lỗi về BUS xử lý
             }
         }
 
         // --- PHẦN 3: XUẤT KHO (TRANSACTION) ---
         public static bool XuatKho(string maNV, string lyDo, List<CartItemDTO> listxuatkho)
         {
-            using (SqlConnection conn = new SqlConnection(connStr))
+            using var db = Db.Create();
+            using var trans = db.Database.BeginTransaction();
+            try
             {
-                conn.Open();
-                SqlTransaction trans = conn.BeginTransaction();
+                // 1. Tạo phiếu xuất
+                var phieu = new Xuatkho { Manv = maNV, LyDoxuat = lyDo, NgayXuat = DateTime.Now };
+                db.Xuatkhos.Add(phieu);
+                db.SaveChanges();
 
-                try
+                // 2. Thêm chi tiết xuất và trừ tồn kho (kiểm tra tồn trước)
+                foreach (var item in listxuatkho)
                 {
-                    // 1. Tạo phiếu xuất
-                    int maXK = 0;
-                    using (SqlCommand cmd = new SqlCommand("sp_TaoPhieuXuat", conn, trans))
+                    var sp = db.Sanphams.First(s => s.Masp == item.MaSP);
+                    if (sp.Soluongton < item.SoLuong)
+                        throw new InvalidOperationException("Số lượng tồn không đủ để xuất");
+
+                    db.Chitietxuatkhos.Add(new Chitietxuatkho
                     {
-                        cmd.CommandType = CommandType.StoredProcedure;
-                        cmd.Parameters.AddWithValue("@Manv", maNV);
-                        cmd.Parameters.AddWithValue("@LyDo", lyDo ?? (object)DBNull.Value);
-
-                        SqlParameter outParam = new SqlParameter("@MaXK", SqlDbType.Int)
-                        {
-                            Direction = ParameterDirection.Output
-                        };
-                        cmd.Parameters.Add(outParam);
-
-                        cmd.ExecuteNonQuery();
-                        maXK = (int)outParam.Value;
-                    }
-
-                    // 2. Thêm chi tiết xuất
-                    foreach (var item in listxuatkho)
-                    {
-                        using (SqlCommand cmd = new SqlCommand("sp_ThemChiTietXuat", conn, trans))
-                        {
-                            cmd.CommandType = CommandType.StoredProcedure;
-                            cmd.Parameters.AddWithValue("@MaXK", maXK);
-                            cmd.Parameters.AddWithValue("@Masp", item.MaSP);
-                            cmd.Parameters.AddWithValue("@Soluong", item.SoLuong);
-                            cmd.ExecuteNonQuery();
-                        }
-                    }
-
-                    trans.Commit();
-                    return true;
+                        MaXk = phieu.MaXk,
+                        Masp = item.MaSP,
+                        SoLuongXuat = item.SoLuong
+                    });
+                    sp.Soluongton -= item.SoLuong;
                 }
-                catch (Exception)
-                {
-                    trans.Rollback();
-                    throw;
-                }
+                db.SaveChanges();
+
+                trans.Commit();
+                return true;
+            }
+            catch (Exception)
+            {
+                trans.Rollback();
+                throw;
             }
         }
 
         // --- PHẦN 4: LỊCH SỬ ---
         public static List<PhieuNhapDTO> LayLichSuNhap(DateTime? tuNgay, DateTime? denNgay, string tuKhoa)
         {
-            var list = new List<PhieuNhapDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayLichSuNhapKho", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@TuNgay", tuNgay ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@DenNgay", denNgay ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@TuKhoa", string.IsNullOrEmpty(tuKhoa) ? (object)DBNull.Value : tuKhoa);
+            using var db = Db.Create();
+            var q = db.Nhapkhos.AsNoTracking().AsQueryable();
 
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new PhieuNhapDTO
-                            {
-                                MaNK = Convert.ToInt32(r["Mank"]),
-                                NgayNhap = Convert.ToDateTime(r["Ngaynhap"]),
-                                TenNCC = r["Tennhacc"].ToString(),
-                                TenNhanVien = r["TenNhanVien"].ToString(),
-                                TongTien = Convert.ToDecimal(r["Tongtien"])
-                            });
-                        }
-                    }
-                }
+            if (tuNgay.HasValue)
+            {
+                var tu = tuNgay.Value.Date;
+                q = q.Where(n => n.Ngaynhap >= tu);
             }
-            return list;
+            if (denNgay.HasValue)
+            {
+                var den = denNgay.Value.Date.AddDays(1);
+                q = q.Where(n => n.Ngaynhap < den);
+            }
+            if (!string.IsNullOrEmpty(tuKhoa))
+                q = q.Where(n => n.ManhaccNavigation.Tennhacc.Contains(tuKhoa)
+                              || n.ManvNavigation.Hoten.Contains(tuKhoa)
+                              || n.Mank.ToString().Contains(tuKhoa));
+
+            return q.OrderByDescending(n => n.Ngaynhap)
+                .Select(n => new PhieuNhapDTO
+                {
+                    MaNK = n.Mank,
+                    NgayNhap = n.Ngaynhap,
+                    TenNCC = n.ManhaccNavigation.Tennhacc,
+                    TenNhanVien = n.ManvNavigation.Hoten,
+                    TongTien = n.Chitietnhapkhos.Sum(ct => (decimal?)(ct.Soluongnhap * ct.Gianhap)) ?? 0m
+                })
+                .ToList();
         }
 
         public static List<ChiTietKhoDTO> LayChiTietPhieuNhap(int maNK)
         {
-            var list = new List<ChiTietKhoDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayChiTietPhieuNhap", conn))
+            using var db = Db.Create();
+            return db.Chitietnhapkhos
+                .AsNoTracking()
+                .Where(ct => ct.Mank == maNK)
+                .Select(ct => new ChiTietKhoDTO
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@Mank", maNK);
-
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new ChiTietKhoDTO
-                            {
-                                MaPhieu = Convert.ToInt32(r["Mank"]),
-                                MaSP = Convert.ToInt32(r["Masp"]),
-                                TenSP = r["Tensp"].ToString(),
-                                SoLuong = Convert.ToInt32(r["Soluongnhap"]),
-                                DonGia = Convert.ToDecimal(r["Gianhap"]),
-                                TenNhanVien = r["TenNhanVien"].ToString()
-
-                            });
-                        }
-                    }
-                }
-            }
-            return list;
+                    MaPhieu = ct.Mank,
+                    MaSP = ct.Masp,
+                    TenSP = ct.MaspNavigation.Tensp,
+                    SoLuong = ct.Soluongnhap,
+                    DonGia = ct.Gianhap,
+                    TenNhanVien = ct.MankNavigation.ManvNavigation.Hoten
+                })
+                .ToList();
         }
+
         public static List<PhieuXuatDTO> LayLichSuXuat(DateTime? tuNgay, DateTime? denNgay, string tuKhoa)
         {
-            var list = new List<PhieuXuatDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayLichSuXuatKho", conn))
-                {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@TuNgay", tuNgay ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@DenNgay", denNgay ?? (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@TuKhoa", string.IsNullOrEmpty(tuKhoa) ? (object)DBNull.Value : tuKhoa);
+            using var db = Db.Create();
+            var q = db.Xuatkhos.AsNoTracking().AsQueryable();
 
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new PhieuXuatDTO
-                            {
-                                MaXK = Convert.ToInt32(r["MaXK"]),
-                                NgayXuat = Convert.ToDateTime(r["NgayXuat"]),
-                                TenNhanVien = r["TenNhanVien"].ToString(),
-                                LyDo = r["LyDoxuat"].ToString()
-                            });
-                        }
-                    }
-                }
+            if (tuNgay.HasValue)
+            {
+                var tu = tuNgay.Value.Date;
+                q = q.Where(x => x.NgayXuat >= tu);
             }
-            return list;
+            if (denNgay.HasValue)
+            {
+                var den = denNgay.Value.Date.AddDays(1);
+                q = q.Where(x => x.NgayXuat < den);
+            }
+            if (!string.IsNullOrEmpty(tuKhoa))
+                q = q.Where(x => x.ManvNavigation.Hoten.Contains(tuKhoa)
+                              || (x.LyDoxuat != null && x.LyDoxuat.Contains(tuKhoa))
+                              || x.MaXk.ToString().Contains(tuKhoa));
+
+            return q.OrderByDescending(x => x.NgayXuat)
+                .Select(x => new PhieuXuatDTO
+                {
+                    MaXK = x.MaXk,
+                    NgayXuat = x.NgayXuat,
+                    TenNhanVien = x.ManvNavigation.Hoten,
+                    LyDo = x.LyDoxuat ?? string.Empty
+                })
+                .ToList();
         }
 
         public static List<ChiTietKhoDTO> LayChiTietPhieuXuat(int maXK)
         {
-            var list = new List<ChiTietKhoDTO>();
-            using (SqlConnection conn = new SqlConnection(connStr))
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand("sp_LayChiTietPhieuXuat", conn))
+            using var db = Db.Create();
+            return db.Chitietxuatkhos
+                .AsNoTracking()
+                .Where(ct => ct.MaXk == maXK)
+                .Select(ct => new ChiTietKhoDTO
                 {
-                    cmd.CommandType = CommandType.StoredProcedure;
-                    cmd.Parameters.AddWithValue("@MaXK", maXK);
-
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            list.Add(new ChiTietKhoDTO
-                            {
-                                MaPhieu = Convert.ToInt32(r["MaXK"]),
-                                MaSP = Convert.ToInt32(r["Masp"]),
-                                TenSP = r["Tensp"].ToString(),
-                                SoLuong = Convert.ToInt32(r["SoLuongXuat"]),
-                                DonGia = 0, // Xuất kho không lưu giá trong chi tiết
-                                TenNhanVien = "" // Không dùng
-                            });
-                        }
-                    }
-                }
-            }
-            return list;
+                    MaPhieu = ct.MaXk,
+                    MaSP = ct.Masp,
+                    TenSP = ct.MaspNavigation.Tensp,
+                    SoLuong = ct.SoLuongXuat,
+                    DonGia = 0,          // Xuất kho không lưu giá trong chi tiết
+                    TenNhanVien = ""     // Không dùng
+                })
+                .ToList();
         }
-
-
-
-
     }
 }

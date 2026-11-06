@@ -106,13 +106,12 @@ namespace ABC
         }
         private void LoadLoaiMaGG()
         {
-            DataTable dt = VoucherBUS.Instance.GetVoucherTypes();
+            // Chỉ lấy loại mã 1 (giảm %) và 3 (giảm theo giá trị thực)
+            var dsLoai = VoucherBUS.Instance.GetVoucherTypes()
+                .Where(l => l.Maloaivc == 1 || l.Maloaivc == 3)
+                .ToList();
 
-            //lọc loại mã 1 và 3
-            DataView dv = dt.DefaultView;
-            dv.RowFilter = "Maloaivc = 1 OR Maloaivc = 3";
-
-            cbbLoaiMaGiamGia.DataSource = dv;
+            cbbLoaiMaGiamGia.DataSource = dsLoai;
             cbbLoaiMaGiamGia.DisplayMember = "Tenloai";
             cbbLoaiMaGiamGia.ValueMember = "Maloaivc";
             cbbLoaiMaGiamGia.SelectedIndex = -1;
@@ -121,8 +120,8 @@ namespace ABC
         private void LoadLoaiSanPham()
         {
             cbbLoaiSanPham.DataSource = DanhSachSanPhamBUS.Instance.GetLoaiSanPham();
-            cbbLoaiSanPham.DisplayMember = "tenloai";
-            cbbLoaiSanPham.ValueMember = "maloai";
+            cbbLoaiSanPham.DisplayMember = "TenLoai";
+            cbbLoaiSanPham.ValueMember = "MaLoai";
             cbbLoaiSanPham.SelectedIndex = -1;
         }
         private void LoadSanPham()
@@ -305,9 +304,9 @@ namespace ABC
 
         private void cbbLoaiMaGiamGia_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (cbbLoaiMaGiamGia.SelectedItem is DataRowView row)
+            if (cbbLoaiMaGiamGia.SelectedItem is LoaiVoucherDTO loai)
             {
-                int maloaivc = Convert.ToInt32(row["Maloaivc"]);
+                int maloaivc = loai.Maloaivc;
 
                 if (maloaivc == 1)
                 {

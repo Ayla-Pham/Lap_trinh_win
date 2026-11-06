@@ -1,177 +1,187 @@
-﻿using DTO;
-using System.Data;
+﻿using DAO.Models;
 using DTO;
-using System.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace DAO
 {
     public class BanHangDAO
     {
-        private DataProvider provider = DataProvider.Instance;
-        private static BanHangDAO instance;
-        public static BanHangDAO Instance
-        {
-            get
-            {
-                if (instance == null)
-                    instance = new BanHangDAO();
-                return instance;
-            }
-        }
+        private static BanHangDAO? instance;
+        public static BanHangDAO Instance => instance ??= new BanHangDAO();
 
         public bool KiemTraSanPhamPhuHopTheoLoai(List<DanhSachSanPhamDTO> danhSach, int maloai)
         {
-            foreach (var sp in danhSach)
-            {
-                if (sp.LaSanPhamTang) continue;
-
-                if (sp.Maloai == maloai)
-                    return true;
-            }
-
-            return false;
+            return danhSach.Any(sp => !sp.LaSanPhamTang && sp.Maloai == maloai);
         }
 
-        // Get giftable products by voucher (proc returns Masp-level rows)
-        public DataTable GetSanPhamTangByVoucher(int mavc, int maloaiGoc, int loaiVC)
+        // Sản phẩm tặng của voucher (mua 1 tặng 1): loại 2 chỉ tặng sản phẩm cùng loại với sản phẩm mua
+        public List<DanhSachSanPhamDTO> GetSanPhamTangByVoucher(int mavc, int? maloaiGoc = null, int? loaiVC = null)
         {
-            var parameters = new List<SqlParameter>
-            {
-                new SqlParameter("@Mavc", mavc),
-                new SqlParameter("@MaLoai", maloaiGoc),
-                new SqlParameter("@LoaiVC", loaiVC)
-            };
+            using var db = Db.Create();
+            var q = db.Vouchers
+                .AsNoTracking()
+                .Where(v => v.Mavc == mavc)
+                .SelectMany(v => v.Masps)
+                .Where(s => s.Trangthaisp);
 
-            return provider.ExecuteStoredProcedure("sp_GetSanPhamTangByVoucher", parameters.ToArray());
+            if (loaiVC == 2 && maloaiGoc.HasValue)
+                q = q.Where(s => s.Maloai == maloaiGoc.Value);
+
+            return q.OrderBy(s => s.Masp)
+                .Select(s => new
+                {
+                    s.Masp,
+                    s.Tensp,
+                    s.Duongdananh,
+                    s.Giaban,
+                    s.Maloai,
+                    TenLoai = s.MaloaiNavigation.Tenloai,
+                    s.Soluongton,
+                    s.Trangthaisp
+                })
+                .ToList()
+                .Select(s => new DanhSachSanPhamDTO
+                {
+                    Masp = s.Masp,
+                    MaSP = s.Masp.ToString(),
+                    TenSP = s.Tensp,
+                    DuongDanAnh = s.Duongdananh,
+                    GiaBan = s.Giaban,
+                    Maloai = s.Maloai,
+                    TenLoai = s.TenLoai,
+                    SoLuongTon = s.Soluongton,
+                    TrangThaiText = s.Trangthaisp ? "Đang bán" : "Ngừng bán"
+                })
+                .ToList();
         }
 
-        public DataTable GetSanPhamTangByVoucher(int mavc)
-        {
-            var parameters = new SqlParameter[] { new SqlParameter("@Mavc", mavc), new SqlParameter("@MaLoai", DBNull.Value), new SqlParameter("@LoaiVC", DBNull.Value) };
-            return provider.ExecuteStoredProcedure("sp_GetSanPhamTangByVoucher", parameters);
-        }
-
-        // Apply voucher -> use stored proc sp_ApDungVoucher
-        public void ApDungVoucher(int mavc, int mahd)
-        {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Mavc", mavc),
-                new SqlParameter("@Mahd", mahd)
-            };
-            provider.ExecuteNonQueryStoredProcedure("sp_ApDungVoucher", parameters);
-        }
-
-        // Create invoice (sp_TaoHoaDon returns Mahd)
-        public int TaoHoaDon(int? makh, string manv, decimal tongTienGoc, decimal tienGiam, decimal tongTienSauGiam)
-        {
-            SqlParameter[] parameters = {
-                new SqlParameter("@Makh", (object)makh ?? DBNull.Value),
-                new SqlParameter("@Manv", manv),
-                new SqlParameter("@TongTienGoc", tongTienGoc),
-                new SqlParameter("@TienGiam", tienGiam),
-                new SqlParameter("@TongTien", tongTienSauGiam)
-            };
-
-            object result = provider.ExecuteScalarStoredProcedure("sp_TaoHoaDon", parameters);
-            return result != null ? Convert.ToInt32(result) : -1;
-        }
-
-        // Add invoice detail - now pass Masp (product id) in BanHangDTO.Masp
-        public void ThemChiTietHoaDon(int mahd, BanHangDTO sp)
-        {
-            if (sp == null) throw new ArgumentNullException(nameof(sp));
-            if (sp.Masp <= 0 || sp.SoLuong <= 0 || sp.GiaBan < 0) throw new ArgumentException("Dữ liệu sản phẩm không hợp lệ.");
-
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@Mahd", mahd),
-                new SqlParameter("@Masp", sp.Masp),
-                new SqlParameter("@Soluong", sp.SoLuong),
-                new SqlParameter("@Dongia", sp.GiaBan),
-                new SqlParameter("@IsTang", sp.LaSanPhamTang ? 1 : 0)
-            };
-
-            provider.ExecuteNonQueryStoredProcedure("sp_ThemChiTietHoaDon", parameters);
-        }
-
-        // Decrement stock by Masp (calls sp_TruTonKho)
+        // Trừ tồn kho theo mã sản phẩm
         public void TruTonKho(int masp, int soLuong)
         {
-            SqlParameter[] parameters = new SqlParameter[]
-            {
-                new SqlParameter("@Masp", masp),
-                new SqlParameter("@SoLuong", soLuong)
-            };
+            using var db = Db.Create();
+            var sp = db.Sanphams.FirstOrDefault(s => s.Masp == masp)
+                     ?? throw new InvalidOperationException("Không tìm thấy sản phẩm.");
+            if (sp.Soluongton < soLuong)
+                throw new InvalidOperationException("Số lượng tồn không đủ.");
 
-            provider.ExecuteNonQueryStoredProcedure("sp_TruTonKho", parameters);
+            sp.Soluongton -= soLuong;
+            db.SaveChanges();
         }
 
-        // Load all products (uses sp_LayDanhSachSanPham_Admin)
+        // Lập hóa đơn trong một giao dịch: hóa đơn, chi tiết, áp mã giảm giá, trừ tồn kho
+        public int XuatHoaDon(int? makh, string manv, List<BanHangDTO> danhSachBanHang, int? mavc,
+                              decimal tongTienGoc, decimal tienGiam, decimal tongTienSauGiam)
+        {
+            using var db = Db.Create();
+            using var tran = db.Database.BeginTransaction();
+            try
+            {
+                // 1) Hóa đơn
+                var hoaDon = new Hoadon
+                {
+                    Makh = makh,
+                    Manv = manv,
+                    Ngaylap = DateTime.Now,
+                    TongTienGoc = tongTienGoc,
+                    TienGiam = tienGiam,
+                    TongTien = tongTienSauGiam
+                };
+                db.Hoadons.Add(hoaDon);
+                db.SaveChanges();
+
+                // 2) Chi tiết: gộp theo Masp + IsTang để không vi phạm khóa chính (Mahd, Masp, IsTang)
+                var dong = danhSachBanHang
+                    .GroupBy(s => new { s.Masp, s.LaSanPhamTang })
+                    .Select(g => new
+                    {
+                        g.Key.Masp,
+                        IsTang = g.Key.LaSanPhamTang,
+                        Soluong = g.Sum(x => x.SoLuong),
+                        Dongia = g.First().GiaBan
+                    })
+                    .ToList();
+
+                foreach (var d in dong)
+                {
+                    if (d.Masp <= 0 || d.Soluong <= 0 || d.Dongia < 0)
+                        throw new ArgumentException("Dữ liệu sản phẩm không hợp lệ.");
+
+                    db.Chitiethds.Add(new Chitiethd
+                    {
+                        Mahd = hoaDon.Mahd,
+                        Masp = d.Masp,
+                        Soluong = d.Soluong,
+                        Dongia = d.Dongia,
+                        IsTang = d.IsTang
+                    });
+                }
+
+                // 3) Áp dụng voucher (bảng APMAVC)
+                if (mavc.HasValue)
+                {
+                    var voucher = db.Vouchers.FirstOrDefault(v => v.Mavc == mavc.Value)
+                                  ?? throw new InvalidOperationException("Voucher không tồn tại.");
+                    hoaDon.Mavcs.Add(voucher);
+                }
+
+                // 4) Trừ tồn kho cho sản phẩm không phải hàng tặng
+                var dsMasp = dong.Where(d => !d.IsTang).Select(d => d.Masp).ToList();
+                var sanPhams = db.Sanphams.Where(s => dsMasp.Contains(s.Masp)).ToDictionary(s => s.Masp);
+                foreach (var d in dong.Where(d => !d.IsTang))
+                {
+                    var sp = sanPhams[d.Masp];
+                    if (sp.Soluongton < d.Soluong)
+                        throw new InvalidOperationException($"Sản phẩm \"{sp.Tensp}\" không đủ tồn kho.");
+                    sp.Soluongton -= d.Soluong;
+                }
+
+                db.SaveChanges();
+                tran.Commit();
+                return hoaDon.Mahd;
+            }
+            catch
+            {
+                tran.Rollback();
+                throw;
+            }
+        }
+
+        private static BanHangDTO ToBanHang(Sanpham s) => new BanHangDTO
+        {
+            Masp = s.Masp,
+            MaSP = s.Masp.ToString(),
+            TenSP = s.Tensp,
+            TenLoai = s.MaloaiNavigation.Tenloai,
+            GiaBan = s.Giaban,
+            DuongDanAnh = s.Duongdananh ?? string.Empty,
+            Maloai = s.Maloai,
+            SoLuongTon = s.Soluongton,
+            TrangThaiText = s.Trangthaisp ? "Đang bán" : "Ngừng bán"
+        };
+
+        // Tất cả sản phẩm
         public List<BanHangDTO> LayTatCaSanPham()
         {
-            List<BanHangDTO> list = new List<BanHangDTO>();
-
-            SqlParameter[] parameters = {
-                new SqlParameter("@TuKhoa", DBNull.Value),
-                new SqlParameter("@MaLoai", 0)
-            };
-
-            DataTable dt = provider.ExecuteStoredProcedure("sp_LayDanhSachSanPham_Admin", parameters);
-            foreach (DataRow row in dt.Rows)
-            {
-                int masp = row.Table.Columns.Contains("Masp") ? Convert.ToInt32(row["Masp"]) : 0;
-                list.Add(new BanHangDTO
-                {
-                    Masp = masp,
-                    MaSP = row["Masp"].ToString(),
-                    TenSP = row["TenSP"].ToString(),
-                    TenLoai = row["TenLoai"].ToString(),
-                    GiaBan = row.Table.Columns.Contains("GiaBan") ? Convert.ToDecimal(row["GiaBan"]) : 0m,
-                    DuongDanAnh = row.Table.Columns.Contains("DuongDanAnh") ? row["DuongDanAnh"].ToString() : string.Empty,
-                    Maloai = row.Table.Columns.Contains("Maloai") ? Convert.ToInt32(row["Maloai"]) : 0,
-                    SoLuongTon = row.Table.Columns.Contains("SoLuongTon") ? Convert.ToInt32(row["SoLuongTon"]) : 0,
-                    TrangThaiText = row.Table.Columns.Contains("TrangThai") ? (Convert.ToInt32(row["TrangThai"]) == 1 ? "Đang bán" : "Ngừng bán") : string.Empty
-                });
-            }
-
-            return list;
+            using var db = Db.Create();
+            return db.Sanphams
+                .AsNoTracking()
+                .Include(s => s.MaloaiNavigation)
+                .OrderBy(s => s.Masp)
+                .ToList()
+                .Select(ToBanHang)
+                .ToList();
         }
 
-        // Search uses same SP
+        // Tìm kiếm theo tên hoặc mã
         public List<BanHangDTO> TimKiemSanPham(string searchType, string keyword)
         {
-            List<BanHangDTO> list = new List<BanHangDTO>();
+            using var db = Db.Create();
+            var q = db.Sanphams.AsNoTracking().Include(s => s.MaloaiNavigation).AsQueryable();
 
-            object tuKhoa = string.IsNullOrWhiteSpace(keyword) ? DBNull.Value : (object)keyword;
-            object maLoai = 0;
+            if (!string.IsNullOrWhiteSpace(keyword))
+                q = q.Where(s => s.Tensp.Contains(keyword) || s.Masp.ToString().Contains(keyword));
 
-            SqlParameter[] parameters = new SqlParameter[] { new SqlParameter("@TuKhoa", tuKhoa), new SqlParameter("@MaLoai", maLoai) };
-            DataTable dt = provider.ExecuteStoredProcedure("sp_LayDanhSachSanPham_Admin", parameters);
-
-            foreach (DataRow row in dt.Rows)
-            {
-                int masp = row.Table.Columns.Contains("Masp") ? Convert.ToInt32(row["Masp"]) : 0;
-                list.Add(new BanHangDTO
-                {
-                    Masp = masp,
-                    MaSP = row["Masp"].ToString(),
-                    TenSP = row["TenSP"].ToString(),
-                    TenLoai = row["TenLoai"].ToString(),
-                    GiaBan = row.Table.Columns.Contains("GiaBan") ? Convert.ToDecimal(row["GiaBan"]) : 0m,
-                    DuongDanAnh = row.Table.Columns.Contains("DuongDanAnh") ? row["DuongDanAnh"].ToString() : string.Empty,
-                    Maloai = row.Table.Columns.Contains("Maloai") ? Convert.ToInt32(row["Maloai"]) : 0,
-                    SoLuongTon = row.Table.Columns.Contains("SoLuongTon") ? Convert.ToInt32(row["SoLuongTon"]) : 0,
-                    TrangThaiText = row.Table.Columns.Contains("TrangThai") ? (Convert.ToInt32(row["TrangThai"]) == 1 ? "Đang bán" : "Ngừng bán") : string.Empty
-                });
-            }
-
-            return list;
+            return q.OrderBy(s => s.Masp).ToList().Select(ToBanHang).ToList();
         }
     }
 }

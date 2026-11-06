@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Data;
 using DAO;
 using DTO;
 
@@ -9,7 +8,7 @@ namespace BUS
     {
         private TraHangDAO dao = new TraHangDAO();
 
-        public DataTable GetDanhSachHoaDon(string tuKhoa = "")
+        public List<HoaDonTraHangDTO> GetDanhSachHoaDon(string tuKhoa = "")
         {
             return dao.GetDanhSachHoaDon(tuKhoa);
         }
@@ -19,18 +18,30 @@ namespace BUS
             return dao.GetChiTietHoaDon(maHD);
         }
 
+        public List<PhieuTraHangDongDTO> GetDanhSachPhieuTra(string tuKhoa = "")
+        {
+            return dao.GetDanhSachPhieuTra(tuKhoa);
+        }
+
+        public List<ChiTietPhieuTraDongDTO> GetChiTietPhieuTra(int matra)
+        {
+            return dao.GetChiTietPhieuTra(matra);
+        }
+
         public int TaoTraHang(int maHD, string manv, string lyDo, List<ChiTietTraHangDTO> chiTiet)
         {
-            // Tạo phiếu trả hàng
             int maTra = dao.ThemTraHang(maHD, manv, lyDo);
-
-            // Thêm chi tiết và cập nhật tồn kho
             foreach (var item in chiTiet)
             {
                 dao.ThemChiTietTraHang(maTra, item.Masp, item.SoLuong, item.DonGia);
             }
-
             return maTra;
+        }
+
+        // Trả toàn bộ hóa đơn (một giao dịch)
+        public int TraToanBoHoaDon(int maHD, string manv, string lyDo)
+        {
+            return dao.TraToanBoHoaDon(maHD, manv, lyDo);
         }
     }
 }

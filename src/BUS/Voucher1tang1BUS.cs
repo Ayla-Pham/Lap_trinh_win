@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Data.SqlClient;
 using System.Data;
 using DTO;
 namespace BUS
@@ -45,7 +44,7 @@ namespace BUS
             return true;
         }
         // Tìm kiếm sản phẩm tặng theo từ khóa
-        public DataTable TimSanPhamTang(string keyword)
+        public List<SanPhamTangDTO> TimSanPhamTang(string keyword)
         {
             return Voucher1tang1DAO.Instance.SearchSanPhamTang(keyword);
         }
@@ -72,16 +71,16 @@ namespace BUS
             return Voucher1tang1DAO.GetCode(mavc);
         }
 
-        public DataRow GetVoucherByID(int mavc)
+        public VoucherDTO GetVoucherByID(int mavc)
         {
             return Voucher1tang1DAO.Instance.GetVoucherByID(mavc);
         }
 
-        public DataTable GetSanPhamTangByVoucher(int mavc)
+        public List<SanPhamTangDTO> GetSanPhamTangByVoucher(int mavc)
         {
             return Voucher1tang1DAO.Instance.GetSanPhamTangByVoucher(mavc);
         }
-        public DataTable TimSanPhamTangTheoLoai(int maloai)
+        public List<SanPhamTangDTO> TimSanPhamTangTheoLoai(int maloai)
         {
             return Voucher1tang1DAO.Instance.TimSanPhamTangTheoLoai(maloai);
         }

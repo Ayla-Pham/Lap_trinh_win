@@ -116,7 +116,9 @@ namespace ABC
                     MaLoai = maLoai,
                     GiaBan = giaBan,
                     CanhBaoTonKho = canhBao,
-                    DuongDanAnh = null
+                    DuongDanAnh = string.IsNullOrEmpty(selectedImagePath)
+                        ? null
+                        : ImageHelper.DbPath(maSP + Path.GetExtension(selectedImagePath))
                 };
 
                 bool ok = sanPhamBUS.AddSanPham(sp);
