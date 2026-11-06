@@ -1,4 +1,4 @@
-
+﻿
 namespace ABC
 {
     internal static class Program
@@ -13,7 +13,8 @@ namespace ABC
             // see https://aka.ms/applicationconfiguration.
            
 
-            ApplicationConfiguration.Initialize();
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Home());
         }
     }

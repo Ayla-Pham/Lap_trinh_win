@@ -1,6 +1,4 @@
-﻿using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
@@ -10,14 +8,14 @@ namespace DAO
         public List<LoaiSPDTO> GetLoaiSP()
         {
             using var db = Db.Create();
-            return db.Loaisps
-                .AsNoTracking()
+            return db.LOAISPs
+                
                 .Select(l => new LoaiSPDTO { MaLoai = l.Maloai, TenLoai = l.Tenloai })
                 .ToList();
         }
 
         // Lọc hóa đơn theo khoảng ngày (bao gồm cả ngày cuối)
-        private static IQueryable<Hoadon> LocTheoNgay(IQueryable<Hoadon> q, DateTime? tuNgay, DateTime? denNgay)
+        private static IQueryable<HOADON> LocTheoNgay(IQueryable<HOADON> q, DateTime? tuNgay, DateTime? denNgay)
         {
             if (tuNgay.HasValue)
             {
@@ -38,8 +36,8 @@ namespace DAO
             using var db = Db.Create();
 
             // Mỗi hóa đơn nối trái với các voucher đã áp dụng (như LEFT JOIN APMAVC / VOUCHER)
-            var rows = (from h in LocTheoNgay(db.Hoadons.AsNoTracking(), tuNgay, denNgay)
-                        from v in h.Mavcs.DefaultIfEmpty()
+            var rows = (from h in LocTheoNgay(db.HOADONs, tuNgay, denNgay)
+                        from ap in h.APMAVCs.DefaultIfEmpty()
                         orderby h.Ngaylap descending
                         select new
                         {
@@ -48,12 +46,12 @@ namespace DAO
                             h.TongTienGoc,
                             h.TienGiam,
                             h.TongTien,
-                            TenKH = h.MakhNavigation != null ? h.MakhNavigation.Tenkh : "Khách vãng lai",
-                            SDTKH = h.MakhNavigation != null ? h.MakhNavigation.Sdt : "",
-                            TenNhanVien = h.ManvNavigation.Hoten,
-                            MaVoucher = v != null ? v.Code : null,
-                            Giatri = v != null ? (decimal?)v.Giatri : null,
-                            Maloaivc = v != null ? (int?)v.Maloaivc : null
+                            TenKH = h.KHACHHANG != null ? h.KHACHHANG.Tenkh : "Khách vãng lai",
+                            SDTKH = h.KHACHHANG != null ? h.KHACHHANG.Sdt : "",
+                            TenNhanVien = h.NHANVIEN.Hoten,
+                            MaVoucher = ap != null ? ap.VOUCHER.Code : null,
+                            Giatri = ap != null ? (decimal?)ap.VOUCHER.Giatri : null,
+                            Maloaivc = ap != null ? (int?)ap.VOUCHER.Maloaivc : null
                         }).ToList();
 
             return rows.Select(r => new HoaDonDTO
@@ -76,17 +74,17 @@ namespace DAO
         }
 
         // ================= SẢN PHẨM TRONG HÓA ĐƠN =================
-        private static List<DanhSachSanPhamDTO> GetSanPham(QLCHContext db, int mahd, bool isTang)
+        private static List<DanhSachSanPhamDTO> GetSanPham(QLCHDataContext db, int mahd, bool isTang)
         {
-            return db.Chitiethds
-                .AsNoTracking()
+            return db.CHITIETHDs
+                
                 .Where(ct => ct.Mahd == mahd && ct.IsTang == isTang)
                 .Select(ct => new
                 {
                     ct.Masp,
-                    ct.MaspNavigation.Tensp,
-                    ct.MaspNavigation.Maloai,
-                    ct.MaspNavigation.Duongdananh,
+                    ct.SANPHAM.Tensp,
+                    ct.SANPHAM.Maloai,
+                    ct.SANPHAM.Duongdananh,
                     ct.Soluong
                 })
                 .ToList()
@@ -103,23 +101,20 @@ namespace DAO
         }
 
         // ================= SẢN PHẨM ĐƯỢC GIẢM =================
-        private static List<DanhSachSanPhamDTO> GetSanPhamDuocGiam(QLCHContext db, int mahd)
+        private static List<DanhSachSanPhamDTO> GetSanPhamDuocGiam(QLCHDataContext db, int mahd)
         {
             // voucher % (loại 1) áp dụng cho cả hóa đơn, hoặc voucher áp dụng cho đúng loại sản phẩm
-            var rows = (from ct in db.Chitiethds.AsNoTracking()
+            var rows = (from ct in db.CHITIETHDs
                         where ct.Mahd == mahd && !ct.IsTang
-                        from v in ct.MahdNavigation.Mavcs
-                        where v.Maloaivc == 1 || v.Maloai == ct.MaspNavigation.Maloai
+                        from ap in ct.HOADON.APMAVCs where ap.VOUCHER.Maloaivc == 1 || ap.VOUCHER.Maloai == ct.SANPHAM.Maloai
                         select new
                         {
                             ct.Masp,
-                            ct.MaspNavigation.Tensp,
-                            ct.MaspNavigation.Maloai,
-                            ct.MaspNavigation.Duongdananh,
+                            ct.SANPHAM.Tensp,
+                            ct.SANPHAM.Maloai,
+                            ct.SANPHAM.Duongdananh,
                             ct.Soluong,
-                            v.Giatri,
-                            v.Maloaivc
-                        }).ToList();
+                            ap.VOUCHER.Giatri, ap.VOUCHER.Maloaivc }).ToList();
 
             return rows.Select(x => new DanhSachSanPhamDTO
             {
@@ -139,10 +134,10 @@ namespace DAO
         {
             using var db = Db.Create();
 
-            var q = from h in LocTheoNgay(db.Hoadons.AsNoTracking(), tuNgay, denNgay)
-                    from ct in h.Chitiethds
+            var q = from h in LocTheoNgay(db.HOADONs, tuNgay, denNgay)
+                    from ct in h.CHITIETHDs
                     where !ct.IsTang
-                    select new { h.Ngaylap, ct.Soluong, ct.Dongia, ct.MaspNavigation.Maloai };
+                    select new { h.Ngaylap, ct.Soluong, ct.Dongia, ct.SANPHAM.Maloai };
 
             if (maLoai.HasValue)
                 q = q.Where(x => x.Maloai == maLoai.Value);
@@ -162,14 +157,14 @@ namespace DAO
         {
             using var db = Db.Create();
 
-            var q = from h in LocTheoNgay(db.Hoadons.AsNoTracking(), tuNgay, denNgay)
-                    from ct in h.Chitiethds
+            var q = from h in LocTheoNgay(db.HOADONs, tuNgay, denNgay)
+                    from ct in h.CHITIETHDs
                     where !ct.IsTang
                     select new
                     {
                         ct.Masp,
-                        ct.MaspNavigation.Tensp,
-                        ct.MaspNavigation.Maloai,
+                        ct.SANPHAM.Tensp,
+                        ct.SANPHAM.Maloai,
                         ct.Soluong,
                         ct.Dongia
                     };

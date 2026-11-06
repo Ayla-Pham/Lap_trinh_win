@@ -1,6 +1,4 @@
-﻿using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
@@ -9,41 +7,39 @@ namespace DAO
         private static VoucherDAO? instance;
         public static VoucherDAO Instance => instance ??= new VoucherDAO();
 
-        private static DateOnly ToDateOnly(DateTime d) => DateOnly.FromDateTime(d);
-
-        private static Voucher ToEntity(VoucherDTO v) => new Voucher
+        private static VOUCHER ToEntity(VoucherDTO v) => new VOUCHER
         {
             Code = v.Code,
             TenMaGiamGia = v.TenMaGiamGia,
             Giatri = v.Giatri,
-            Ngaybd = ToDateOnly(v.Ngaybd),
-            Ngaykt = ToDateOnly(v.Ngaykt),
+            Ngaybd = v.Ngaybd.Date,
+            Ngaykt = v.Ngaykt.Date,
             DieuKien = v.DieuKien,
             Maloaivc = v.Maloaivc,
             Maloai = v.Maloai
         };
 
-        private static void CopyTo(VoucherDTO v, Voucher e)
+        private static void CopyTo(VoucherDTO v, VOUCHER e)
         {
             e.Code = v.Code;
             e.TenMaGiamGia = v.TenMaGiamGia;
             e.Giatri = v.Giatri;
-            e.Ngaybd = ToDateOnly(v.Ngaybd);
-            e.Ngaykt = ToDateOnly(v.Ngaykt);
+            e.Ngaybd = v.Ngaybd.Date;
+            e.Ngaykt = v.Ngaykt.Date;
             e.DieuKien = v.DieuKien;
             e.Maloaivc = v.Maloaivc;
             e.Maloai = v.Maloai;
         }
 
-        private static IQueryable<VoucherDTO> ToDTO(IQueryable<Voucher> q) =>
+        private static IQueryable<VoucherDTO> ToDTO(IQueryable<VOUCHER> q) =>
             q.Select(v => new VoucherDTO
             {
                 Mavc = v.Mavc,
                 Code = v.Code,
                 TenMaGiamGia = v.TenMaGiamGia,
                 Giatri = v.Giatri,
-                Ngaybd = v.Ngaybd.ToDateTime(TimeOnly.MinValue),
-                Ngaykt = v.Ngaykt.ToDateTime(TimeOnly.MinValue),
+                Ngaybd = v.Ngaybd,
+                Ngaykt = v.Ngaykt,
                 DieuKien = v.DieuKien,
                 Maloaivc = v.Maloaivc,
                 Maloai = v.Maloai
@@ -52,14 +48,14 @@ namespace DAO
         public static string GetCode(int mavc)
         {
             using var db = Db.Create();
-            return db.Vouchers.Where(v => v.Mavc == mavc).Select(v => v.Code).FirstOrDefault() ?? "";
+            return db.VOUCHERs.Where(v => v.Mavc == mavc).Select(v => v.Code).FirstOrDefault() ?? "";
         }
 
         public static int? GetIdFromCode(string code)
         {
             using var db = Db.Create();
             string c = code ?? string.Empty;
-            return db.Vouchers.Where(v => v.Code == c).Select(v => (int?)v.Mavc).FirstOrDefault();
+            return db.VOUCHERs.Where(v => v.Code == c).Select(v => (int?)v.Mavc).FirstOrDefault();
         }
 
         public bool AddVoucher(VoucherDTO voucher)
@@ -67,28 +63,29 @@ namespace DAO
             return AddVoucherAndReturnID(voucher) > 0;
         }
 
+        // Gán một sản phẩm cho voucher (bảng VOUCHER_SANPHAM)
         public bool AddVoucherChiTiet(int mavc, int masp)
         {
             using var db = Db.Create();
-            var v = db.Vouchers.Include(x => x.Masps).FirstOrDefault(x => x.Mavc == mavc);
-            var sp = db.Sanphams.FirstOrDefault(s => s.Masp == masp);
-            if (v == null || sp == null) return false;
-            if (v.Masps.Any(s => s.Masp == masp)) return false;
+            if (!db.VOUCHERs.Any(v => v.Mavc == mavc) || !db.SANPHAMs.Any(s => s.Masp == masp))
+                return false;
+            if (db.VOUCHER_SANPHAMs.Any(x => x.Mavc == mavc && x.Masp == masp))
+                return false;
 
-            v.Masps.Add(sp);
-            return db.SaveChanges() > 0;
+            db.VOUCHER_SANPHAMs.InsertOnSubmit(new VOUCHER_SANPHAM { Mavc = mavc, Masp = masp });
+            return db.Save() > 0;
         }
 
         public bool CheckChiTietVoucher(int mavc, int masp)
         {
             using var db = Db.Create();
-            return db.Vouchers.Any(v => v.Mavc == mavc && v.Masps.Any(s => s.Masp == masp));
+            return db.VOUCHER_SANPHAMs.Any(x => x.Mavc == mavc && x.Masp == masp);
         }
 
         public VoucherDTO? GetVoucherByID(int mavc)
         {
             using var db = Db.Create();
-            return ToDTO(db.Vouchers.AsNoTracking().Where(v => v.Mavc == mavc)).FirstOrDefault();
+            return ToDTO(db.VOUCHERs.Where(v => v.Mavc == mavc)).FirstOrDefault();
         }
 
         public bool UpdateVoucher(VoucherDTO voucher)
@@ -96,32 +93,35 @@ namespace DAO
             return UpdateVoucherAndReturnAffectedRows(voucher) > 0;
         }
 
+        // Xóa voucher cùng các liên kết sản phẩm và lịch sử áp dụng
         public bool DeleteVoucher(int mavc)
         {
             using var db = Db.Create();
-            var v = db.Vouchers.Include(x => x.Masps).Include(x => x.Mahds).FirstOrDefault(x => x.Mavc == mavc);
+            var v = db.VOUCHERs.FirstOrDefault(x => x.Mavc == mavc);
             if (v == null) return false;
-            db.Vouchers.Remove(v);
-            return db.SaveChanges() > 0;
+
+            db.VOUCHER_SANPHAMs.DeleteAllOnSubmit(db.VOUCHER_SANPHAMs.Where(x => x.Mavc == mavc));
+            db.APMAVCs.DeleteAllOnSubmit(db.APMAVCs.Where(x => x.Mavc == mavc));
+            db.VOUCHERs.DeleteOnSubmit(v);
+            return db.Save() > 0;
         }
 
         public List<VoucherDTO> GetAllVouchers()
         {
             using var db = Db.Create();
-            return ToDTO(db.Vouchers.AsNoTracking().OrderBy(v => v.Mavc)).ToList();
+            return ToDTO(db.VOUCHERs.OrderBy(v => v.Mavc)).ToList();
         }
 
         public List<VoucherDTO> GetVouchersByType(int maloaivc)
         {
             using var db = Db.Create();
-            return ToDTO(db.Vouchers.AsNoTracking().Where(v => v.Maloaivc == maloaivc).OrderBy(v => v.Mavc)).ToList();
+            return ToDTO(db.VOUCHERs.Where(v => v.Maloaivc == maloaivc).OrderBy(v => v.Mavc)).ToList();
         }
 
         // Danh sách voucher kèm tên loại, loại sản phẩm, sản phẩm áp dụng / tặng
-        private static List<VoucherHienThiDTO> HienThi(IQueryable<Voucher> q)
+        private static List<VoucherHienThiDTO> HienThi(QLCHDataContext db, IQueryable<VOUCHER> q)
         {
-            var rows = q.AsNoTracking()
-                .OrderBy(v => v.Mavc)
+            var rows = q.OrderBy(v => v.Mavc)
                 .Select(v => new
                 {
                     v.Mavc,
@@ -133,32 +133,41 @@ namespace DAO
                     v.DieuKien,
                     v.Maloaivc,
                     v.Maloai,
-                    TenLoaiVouCher = v.MaloaivcNavigation.Tenloai,
-                    TenLoaiSP = v.MaloaiNavigation != null ? v.MaloaiNavigation.Tenloai : null,
-                    SanPham = v.Masps.Select(s => s.Tensp).ToList(),
-                    LoaiSPCuaSanPham = v.Masps.Select(s => s.MaloaiNavigation.Tenloai).Distinct().ToList()
+                    TenLoaiVouCher = v.KIEUVC.Tenloai,
+                    TenLoaiSP = v.LOAISP != null ? v.LOAISP.Tenloai : null
                 })
                 .ToList();
+
+            // Sản phẩm gắn với từng voucher (truy vấn riêng rồi gom nhóm)
+            var dsMavc = rows.Select(r => r.Mavc).ToList();
+            var sanPhams = (from vs in db.VOUCHER_SANPHAMs
+                            where dsMavc.Contains(vs.Mavc)
+                            select new { vs.Mavc, vs.SANPHAM.Tensp, TenLoai = vs.SANPHAM.LOAISP.Tenloai })
+                           .ToList()
+                           .ToLookup(x => x.Mavc);
 
             return rows.Select(r =>
             {
                 bool laMua1Tang1 = r.Maloaivc == 2 || r.Maloaivc == 4;
+                var sp = sanPhams[r.Mavc].ToList();
+                string tenSP = string.Join(", ", sp.Select(x => x.Tensp));
+                string tenLoaiSP = string.Join(", ", sp.Select(x => x.TenLoai).Distinct());
                 return new VoucherHienThiDTO
                 {
                     Mavc = r.Mavc,
                     Code = r.Code,
                     TenMaGiamGia = r.TenMaGiamGia,
                     Giatri = r.Giatri,
-                    Ngaybd = r.Ngaybd.ToDateTime(TimeOnly.MinValue),
-                    Ngaykt = r.Ngaykt.ToDateTime(TimeOnly.MinValue),
+                    Ngaybd = r.Ngaybd,
+                    Ngaykt = r.Ngaykt,
                     DieuKien = r.DieuKien,
                     Maloaivc = r.Maloaivc,
                     Maloai = r.Maloai,
                     TenLoaiVouCher = r.TenLoaiVouCher,
                     TenLoaiSanPhamApDung = r.TenLoaiSP,
-                    TenLoaiSanPhamTang = laMua1Tang1 ? string.Join(", ", r.LoaiSPCuaSanPham) : null,
-                    SanPhamApDung = laMua1Tang1 ? null : string.Join(", ", r.SanPham),
-                    SanPhamTang = laMua1Tang1 ? string.Join(", ", r.SanPham) : null
+                    TenLoaiSanPhamTang = laMua1Tang1 ? tenLoaiSP : null,
+                    SanPhamApDung = laMua1Tang1 ? null : tenSP,
+                    SanPhamTang = laMua1Tang1 ? tenSP : null
                 };
             }).ToList();
         }
@@ -166,22 +175,22 @@ namespace DAO
         public List<VoucherHienThiDTO> GetAllVouchersWithJoin()
         {
             using var db = Db.Create();
-            return HienThi(db.Vouchers);
+            return HienThi(db, db.VOUCHERs);
         }
 
         public List<VoucherHienThiDTO> GetVouchersByTypeWithJoin(int maloaivc)
         {
             using var db = Db.Create();
-            return HienThi(db.Vouchers.Where(v => v.Maloaivc == maloaivc));
+            return HienThi(db, db.VOUCHERs.Where(v => v.Maloaivc == maloaivc));
         }
 
         public List<VoucherDTO> GetVouchersByDateRange(DateTime from, DateTime to)
         {
             using var db = Db.Create();
-            var f = ToDateOnly(from);
-            var t = ToDateOnly(to);
+            var f = from.Date;
+            var t = to.Date;
             // voucher có thời gian hiệu lực giao với khoảng [from, to]
-            return ToDTO(db.Vouchers.AsNoTracking()
+            return ToDTO(db.VOUCHERs
                     .Where(v => v.Ngaybd <= t && v.Ngaykt >= f)
                     .OrderBy(v => v.Mavc))
                 .ToList();
@@ -190,8 +199,7 @@ namespace DAO
         public List<LoaiVoucherDTO> GetVoucherTypes()
         {
             using var db = Db.Create();
-            return db.Kieuvcs
-                .AsNoTracking()
+            return db.KIEUVCs
                 .OrderBy(k => k.Maloaivc)
                 .Select(k => new LoaiVoucherDTO { Maloaivc = k.Maloaivc, Tenloai = k.Tenloai })
                 .ToList();
@@ -201,33 +209,32 @@ namespace DAO
         {
             using var db = Db.Create();
             var e = ToEntity(voucher);
-            db.Vouchers.Add(e);
-            db.SaveChanges();
+            db.VOUCHERs.InsertOnSubmit(e);
+            db.Save();
             return e.Mavc;
         }
 
         public int UpdateVoucherAndReturnAffectedRows(VoucherDTO voucher)
         {
             using var db = Db.Create();
-            var e = db.Vouchers.FirstOrDefault(v => v.Mavc == voucher.Mavc);
+            var e = db.VOUCHERs.FirstOrDefault(v => v.Mavc == voucher.Mavc);
             if (e == null) return 0;
             CopyTo(voucher, e);
-            return db.SaveChanges();
+            return db.Save();
         }
 
         // Thay toàn bộ sản phẩm của voucher bằng danh sách mới
         public bool UpdateVoucherChiTiet(int mavc, List<int> maspList)
         {
             using var db = Db.Create();
-            var v = db.Vouchers.Include(x => x.Masps).FirstOrDefault(x => x.Mavc == mavc);
-            if (v == null) return false;
+            if (!db.VOUCHERs.Any(x => x.Mavc == mavc)) return false;
 
-            v.Masps.Clear();
-            var sanPhams = db.Sanphams.Where(s => maspList.Contains(s.Masp)).ToList();
-            foreach (var sp in sanPhams)
-                v.Masps.Add(sp);
+            db.VOUCHER_SANPHAMs.DeleteAllOnSubmit(db.VOUCHER_SANPHAMs.Where(x => x.Mavc == mavc));
+            db.SubmitChanges();
 
-            db.SaveChanges();
+            var tonTai = db.SANPHAMs.Where(s => maspList.Contains(s.Masp)).Select(s => s.Masp).ToList();
+            db.VOUCHER_SANPHAMs.InsertAllOnSubmit(tonTai.Select(m => new VOUCHER_SANPHAM { Mavc = mavc, Masp = m }));
+            db.SubmitChanges();
             return true;
         }
     }

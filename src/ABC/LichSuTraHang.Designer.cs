@@ -26,6 +26,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            Font = new System.Drawing.Font("Segoe UI", 9F);  // phông mặc định như .NET 8, để AutoScaleMode.Font co giãn đúng
             tlpMain = new System.Windows.Forms.TableLayoutPanel();
             lblTimKiem = new System.Windows.Forms.Label();
             txtTimKiem = new System.Windows.Forms.TextBox();

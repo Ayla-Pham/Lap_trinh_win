@@ -7,7 +7,7 @@ namespace DAO
         public DangNhapQLDTO? Dangnhap(string username)
         {
             using var db = Db.Create();
-            return db.Nhanviens
+            return db.NHANVIENs
                 .Where(nv => nv.Tk == username && nv.Manv.StartsWith("AD"))
                 .Select(nv => new DangNhapQLDTO
                 {

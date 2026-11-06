@@ -1,12 +1,10 @@
-﻿using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
     public class NhanVienDAO
     {
-        private static NhanVienDTO ToDTO(Nhanvien nv) => new NhanVienDTO
+        private static NhanVienDTO ToDTO(NHANVIEN nv) => new NhanVienDTO
         {
             Manv = nv.Manv,
             Tk = nv.Tk,
@@ -15,35 +13,35 @@ namespace DAO
             Hoten = nv.Hoten,
             Sdt = nv.Sdt ?? string.Empty,
             Email = nv.Email ?? string.Empty,
-            NgaySinh = nv.Ngsinh.HasValue ? nv.Ngsinh.Value.ToDateTime(TimeOnly.MinValue) : DateTime.MinValue,
+            NgaySinh = nv.Ngsinh.HasValue ? nv.Ngsinh.Value : DateTime.MinValue,
             Diachi = nv.Diachi ?? string.Empty,
             Luong = nv.Luong ?? 0m,
             Bank = nv.Bank ?? string.Empty,
             Stk = nv.Stk ?? string.Empty
         };
 
-        private static DateOnly? ToDateOnly(DateTime d) =>
-            d == DateTime.MinValue ? null : DateOnly.FromDateTime(d);
+        private static DateTime? ToDateOnly(DateTime d) =>
+            d == DateTime.MinValue ? null : (d).Date;
 
         public static List<NhanVienDTO> layDSNhanVien()
         {
             using var db = Db.Create();
-            return db.Nhanviens.AsNoTracking().ToList().Select(ToDTO).ToList();
+            return db.NHANVIENs.ToList().Select(ToDTO).ToList();
         }
 
         public static void XoaNV(string maNV)
         {
             using var db = Db.Create();
-            var nv = db.Nhanviens.FirstOrDefault(n => n.Manv == maNV);
+            var nv = db.NHANVIENs.FirstOrDefault(n => n.Manv == maNV);
             if (nv == null) return;
-            db.Nhanviens.Remove(nv);
-            db.SaveChanges();
+            db.NHANVIENs.DeleteOnSubmit(nv);
+            db.Save();
         }
 
         public static void SuaNV(NhanVienDTO nv)
         {
             using var db = Db.Create();
-            var e = db.Nhanviens.FirstOrDefault(n => n.Manv == nv.Mand);
+            var e = db.NHANVIENs.FirstOrDefault(n => n.Manv == nv.Mand);
             if (e == null) return;
 
             e.Hoten = nv.Hoten;
@@ -56,10 +54,10 @@ namespace DAO
             e.Bank = nv.Bank;
             e.Stk = nv.Stk;
             e.Ngsinh = ToDateOnly(nv.NgaySinh);
-            db.SaveChanges();
+            db.Save();
         }
 
-        private static IQueryable<NhanVienGridDTO> ToGrid(IQueryable<Nhanvien> q) =>
+        private static IQueryable<NhanVienGridDTO> ToGrid(IQueryable<NHANVIEN> q) =>
             q.OrderBy(n => n.Manv).Select(n => new NhanVienGridDTO
             {
                 Manv = n.Manv,
@@ -69,7 +67,7 @@ namespace DAO
                 Hoten = n.Hoten,
                 Sdt = n.Sdt ?? string.Empty,
                 Email = n.Email ?? string.Empty,
-                Ngsinh = n.Ngsinh.HasValue ? n.Ngsinh.Value.ToDateTime(TimeOnly.MinValue) : (DateTime?)null,
+                Ngsinh = n.Ngsinh.HasValue ? n.Ngsinh.Value : (DateTime?)null,
                 Diachi = n.Diachi ?? string.Empty,
                 Luong = n.Luong ?? 0m,
                 Bank = n.Bank ?? string.Empty,
@@ -79,13 +77,13 @@ namespace DAO
         public static List<NhanVienGridDTO> LayDanhSachNhanVien()
         {
             using var db = Db.Create();
-            return ToGrid(db.Nhanviens.AsNoTracking()).ToList();
+            return ToGrid(db.NHANVIENs).ToList();
         }
 
         public static List<NhanVienGridDTO> TimKiemNhanVien(string keyword)
         {
             using var db = Db.Create();
-            var q = db.Nhanviens.AsNoTracking().Where(n =>
+            var q = db.NHANVIENs.Where(n =>
                 n.Manv.Contains(keyword) ||
                 n.Hoten.Contains(keyword) ||
                 n.Tk.Contains(keyword) ||
@@ -97,7 +95,7 @@ namespace DAO
         public static List<NhanVienDTO> LayNhanVienTheoGio()
         {
             using var db = Db.Create();
-            return db.Nhanviens.AsNoTracking()
+            return db.NHANVIENs
                 .Where(n => n.Luong != null)
                 .ToList()
                 .Select(ToDTO)
@@ -107,7 +105,7 @@ namespace DAO
         public static void themNV(NhanVienDTO hs)
         {
             using var db = Db.Create();
-            db.Nhanviens.Add(new Nhanvien
+            db.NHANVIENs.InsertOnSubmit(new NHANVIEN
             {
                 Manv = hs.Mand,
                 Hoten = hs.Hoten,
@@ -121,20 +119,20 @@ namespace DAO
                 Stk = hs.Stk,
                 Ngsinh = ToDateOnly(hs.NgaySinh)
             });
-            db.SaveChanges();
+            db.Save();
         }
 
         public static NhanVienDTO? LayNhanVienTheoID(string id)
         {
             using var db = Db.Create();
-            var nv = db.Nhanviens.AsNoTracking().FirstOrDefault(n => n.Manv == id);
+            var nv = db.NHANVIENs.FirstOrDefault(n => n.Manv == id);
             return nv == null ? null : ToDTO(nv);
         }
 
         public static string LayTenNhanVien(string mand)
         {
             using var db = Db.Create();
-            return db.Nhanviens
+            return db.NHANVIENs
                 .Where(n => n.Manv == mand)
                 .Select(n => n.Hoten)
                 .FirstOrDefault() ?? "Không xác định";
@@ -144,44 +142,44 @@ namespace DAO
         public static bool KiemTraTonTaiMaNV(string maNV)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Manv == maNV);
+            return db.NHANVIENs.Any(n => n.Manv == maNV);
         }
 
         public static bool KiemTraTonTaiTenTaiKhoan(string tenTaiKhoan)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Tk == tenTaiKhoan);
+            return db.NHANVIENs.Any(n => n.Tk == tenTaiKhoan);
         }
 
         public static bool KiemTraTonTaiSdt(string sdt)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Sdt == sdt);
+            return db.NHANVIENs.Any(n => n.Sdt == sdt);
         }
 
         public static bool KiemTraTonTaiEmail(string email)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Email == email);
+            return db.NHANVIENs.Any(n => n.Email == email);
         }
 
         // ===== Kiểm tra tồn tại trừ chính nhân viên đang sửa =====
         public static bool KiemTraTonTaiTenTaiKhoanKhac(string tenTaiKhoan, string mandCanLoaiTru)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Tk == tenTaiKhoan && n.Manv != mandCanLoaiTru);
+            return db.NHANVIENs.Any(n => n.Tk == tenTaiKhoan && n.Manv != mandCanLoaiTru);
         }
 
         public static bool KiemTraTonTaiSdtKhac(string sdt, string mandCanLoaiTru)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Sdt == sdt && n.Manv != mandCanLoaiTru);
+            return db.NHANVIENs.Any(n => n.Sdt == sdt && n.Manv != mandCanLoaiTru);
         }
 
         public static bool KiemTraTonTaiEmailKhac(string email, string mandCanLoaiTru)
         {
             using var db = Db.Create();
-            return db.Nhanviens.Any(n => n.Email == email && n.Manv != mandCanLoaiTru);
+            return db.NHANVIENs.Any(n => n.Email == email && n.Manv != mandCanLoaiTru);
         }
     }
 }

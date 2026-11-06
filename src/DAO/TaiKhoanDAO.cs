@@ -8,7 +8,7 @@ namespace DAO
         public bool KiemTraMatKhauCu(string username, string hashedPassword)
         {
             using var db = Db.Create();
-            string? storedHash = db.Nhanviens
+            string? storedHash = db.NHANVIENs
                 .Where(nv => nv.Tk == username)
                 .Select(nv => nv.Mk)
                 .FirstOrDefault();
@@ -23,19 +23,19 @@ namespace DAO
         public bool CapNhatMatKhau(string username, string newHashedPassword)
         {
             using var db = Db.Create();
-            var nv = db.Nhanviens.FirstOrDefault(n => n.Tk == username);
+            var nv = db.NHANVIENs.FirstOrDefault(n => n.Tk == username);
             if (nv == null)
                 return false;
 
             nv.Mk = newHashedPassword;
-            return db.SaveChanges() > 0;
+            return db.Save() > 0;
         }
 
         // Xác thực đăng nhập (thay cho sp_CheckDangNhap)
         public NhanVienDTO? DangNhap(string tk, string hashedPassword)
         {
             using var db = Db.Create();
-            var nv = db.Nhanviens
+            var nv = db.NHANVIENs
                 .Where(n => n.Tk == tk && n.Mk == hashedPassword)
                 .FirstOrDefault();
 
@@ -53,7 +53,7 @@ namespace DAO
                 Bank = nv.Bank,
                 Stk = nv.Stk,
                 Luong = nv.Luong ?? 0m,
-                NgaySinh = nv.Ngsinh.HasValue ? nv.Ngsinh.Value.ToDateTime(TimeOnly.MinValue) : default
+                NgaySinh = nv.Ngsinh.HasValue ? nv.Ngsinh.Value : default
             };
         }
     }

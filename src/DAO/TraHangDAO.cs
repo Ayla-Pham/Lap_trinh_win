@@ -1,6 +1,4 @@
-﻿using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
@@ -10,7 +8,7 @@ namespace DAO
         public List<HoaDonTraHangDTO> GetDanhSachHoaDon(string tuKhoa = "")
         {
             using var db = Db.Create();
-            var q = db.Hoadons.AsNoTracking().AsQueryable();
+            var q = db.HOADONs.AsQueryable();
             if (!string.IsNullOrEmpty(tuKhoa))
                 q = q.Where(h => h.Mahd.ToString().Contains(tuKhoa));
 
@@ -30,13 +28,12 @@ namespace DAO
         public List<ChiTietTraHangDTO> GetChiTietHoaDon(int maHD)
         {
             using var db = Db.Create();
-            return db.Chitiethds
-                .AsNoTracking()
+            return db.CHITIETHDs
                 .Where(ct => ct.Mahd == maHD)
                 .Select(ct => new ChiTietTraHangDTO
                 {
                     Masp = ct.Masp,
-                    TenSP = ct.MaspNavigation.Tensp,
+                    TenSP = ct.SANPHAM.Tensp,
                     SoLuong = ct.Soluong,
                     DonGia = ct.Dongia
                 })
@@ -47,24 +44,24 @@ namespace DAO
         public List<PhieuTraHangDongDTO> GetDanhSachPhieuTra(string tuKhoa = "")
         {
             using var db = Db.Create();
-            var q = db.Trahangs.AsNoTracking().AsQueryable();
+            var q = db.TRAHANGs.AsQueryable();
             if (!string.IsNullOrEmpty(tuKhoa))
                 q = q.Where(th => th.Matra.ToString().Contains(tuKhoa)
-                               || th.ManvNavigation.Hoten.Contains(tuKhoa)
-                               || (th.MahdNavigation.MakhNavigation != null
-                                   && th.MahdNavigation.MakhNavigation.Tenkh.Contains(tuKhoa)));
+                               || th.NHANVIEN.Hoten.Contains(tuKhoa)
+                               || (th.HOADON.KHACHHANG != null
+                                   && th.HOADON.KHACHHANG.Tenkh.Contains(tuKhoa)));
 
             return q.OrderByDescending(th => th.Ngaytra)
                     .Select(th => new PhieuTraHangDongDTO
                     {
                         Matra = th.Matra,
                         Ngaytra = th.Ngaytra,
-                        TenNhanVien = th.ManvNavigation.Hoten,
-                        Makh = th.MahdNavigation.Makh,
-                        Tenkh = th.MahdNavigation.MakhNavigation != null
-                                    ? th.MahdNavigation.MakhNavigation.Tenkh : null,
+                        TenNhanVien = th.NHANVIEN.Hoten,
+                        Makh = th.HOADON.Makh,
+                        Tenkh = th.HOADON.KHACHHANG != null
+                                    ? th.HOADON.KHACHHANG.Tenkh : null,
                         Lydotra = th.Lydotra,
-                        TongTien = th.MahdNavigation.TongTien
+                        TongTien = th.HOADON.TongTien
                     })
                     .ToList();
         }
@@ -73,13 +70,12 @@ namespace DAO
         public List<ChiTietPhieuTraDongDTO> GetChiTietPhieuTra(int matra)
         {
             using var db = Db.Create();
-            return db.Cttrahangs
-                .AsNoTracking()
+            return db.CTTRAHANGs
                 .Where(c => c.Matra == matra)
                 .Select(c => new ChiTietPhieuTraDongDTO
                 {
                     Masp = c.Masp,
-                    Tensp = c.MaspNavigation.Tensp,
+                    Tensp = c.SANPHAM.Tensp,
                     Soluong = c.Soluong,
                     Dongia = c.Dongia,
                     ThanhTien = c.Soluong * c.Dongia
@@ -91,9 +87,9 @@ namespace DAO
         public int ThemTraHang(int maHD, string manv, string lyDo)
         {
             using var db = Db.Create();
-            var th = new Trahang { Mahd = maHD, Manv = manv, Lydotra = lyDo, Ngaytra = DateTime.Now };
-            db.Trahangs.Add(th);
-            db.SaveChanges();
+            var th = new TRAHANG { Mahd = maHD, Manv = manv, Lydotra = lyDo, Ngaytra = DateTime.Now };
+            db.TRAHANGs.InsertOnSubmit(th);
+            db.SubmitChanges();
             return th.Matra;
         }
 
@@ -101,42 +97,44 @@ namespace DAO
         public void ThemChiTietTraHang(int maTra, int masp, int soluong, decimal dongia)
         {
             using var db = Db.Create();
-            using var tran = db.Database.BeginTransaction();
-            db.Cttrahangs.Add(new Cttrahang { Matra = maTra, Masp = masp, Soluong = soluong, Dongia = dongia });
-            var sp = db.Sanphams.First(s => s.Masp == masp);
+            db.CTTRAHANGs.InsertOnSubmit(new CTTRAHANG { Matra = maTra, Masp = masp, Soluong = soluong, Dongia = dongia });
+            var sp = db.SANPHAMs.First(s => s.Masp == masp);
             sp.Soluongton += soluong;
-            db.SaveChanges();
-            tran.Commit();
+            db.SubmitChanges();   // SubmitChanges tự chạy trong một giao dịch
         }
 
         // Trả toàn bộ hóa đơn trong một giao dịch: tạo phiếu, chi tiết, cộng tồn kho
         public int TraToanBoHoaDon(int maHD, string manv, string lyDo)
         {
             using var db = Db.Create();
-            using var tran = db.Database.BeginTransaction();
+            int maTra = 0;
 
-            var th = new Trahang { Mahd = maHD, Manv = manv, Lydotra = lyDo, Ngaytra = DateTime.Now };
-            db.Trahangs.Add(th);
-            db.SaveChanges();
-
-            var chiTiet = db.Chitiethds.Where(ct => ct.Mahd == maHD).ToList();
-            var dsMasp = chiTiet.Select(ct => ct.Masp).Distinct().ToList();
-            var sanPhams = db.Sanphams.Where(s => dsMasp.Contains(s.Masp)).ToDictionary(s => s.Masp);
-
-            foreach (var ct in chiTiet)
+            db.RunInTransaction(() =>
             {
-                db.Cttrahangs.Add(new Cttrahang
+                var th = new TRAHANG { Mahd = maHD, Manv = manv, Lydotra = lyDo, Ngaytra = DateTime.Now };
+                db.TRAHANGs.InsertOnSubmit(th);
+                db.SubmitChanges();
+
+                var chiTiet = db.CHITIETHDs.Where(ct => ct.Mahd == maHD).ToList();
+                var dsMasp = chiTiet.Select(ct => ct.Masp).Distinct().ToList();
+                var sanPhams = db.SANPHAMs.Where(s => dsMasp.Contains(s.Masp)).ToDictionary(s => s.Masp);
+
+                foreach (var ct in chiTiet)
                 {
-                    Matra = th.Matra,
-                    Masp = ct.Masp,
-                    Soluong = ct.Soluong,
-                    Dongia = ct.Dongia
-                });
-                sanPhams[ct.Masp].Soluongton += ct.Soluong;
-            }
-            db.SaveChanges();
-            tran.Commit();
-            return th.Matra;
+                    db.CTTRAHANGs.InsertOnSubmit(new CTTRAHANG
+                    {
+                        Matra = th.Matra,
+                        Masp = ct.Masp,
+                        Soluong = ct.Soluong,
+                        Dongia = ct.Dongia
+                    });
+                    sanPhams[ct.Masp].Soluongton += ct.Soluong;
+                }
+                db.SubmitChanges();
+                maTra = th.Matra;
+            });
+
+            return maTra;
         }
     }
 }

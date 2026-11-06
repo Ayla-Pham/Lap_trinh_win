@@ -1,0 +1,209 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Database Name="QLCH" Class="QLCHDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
+  <Connection Mode="AppSettings" ConnectionString="Data Source=.\SQL2022;Initial Catalog=QLCH;Integrated Security=True;TrustServerCertificate=True" SettingsObjectName="DAO.Properties.Settings" SettingsPropertyName="QLCHConnectionString" Provider="System.Data.SqlClient" />
+  <Table Name="dbo.APMAVC" Member="APMAVCs">
+    <Type Name="APMAVC">
+      <Column Name="Mavc" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Mahd" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Association Name="fk_mahd" Member="HOADON" ThisKey="Mahd" OtherKey="Mahd" Type="HOADON" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_mavc" Member="VOUCHER" ThisKey="Mavc" OtherKey="Mavc" Type="VOUCHER" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CHAMCONG" Member="CHAMCONGs">
+    <Type Name="CHAMCONG">
+      <Column Name="Idcc" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" CanBeNull="false" />
+      <Column Name="Ngay" Type="System.DateTime" DbType="Date NOT NULL" CanBeNull="false" />
+      <Column Name="GioBatDau" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="GioKetThuc" Type="System.DateTime" DbType="DateTime" CanBeNull="true" />
+      <Column Name="TongThoiGian" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Association Name="fk_chamcong_Manv" Member="NHANVIEN" ThisKey="Manv" OtherKey="Manv" Type="NHANVIEN" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CHITIETHD" Member="CHITIETHDs">
+    <Type Name="CHITIETHD">
+      <Column Name="Mahd" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Soluong" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Dongia" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="IsTang" Type="System.Boolean" DbType="Bit NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Thanhtien" Type="System.Decimal" DbType="Decimal(29,2)" CanBeNull="true" IsDbGenerated="true" AutoSync="Always" UpdateCheck="Never" Expression="([Soluong]*[Dongia])" />
+      <Association Name="fk_mahdct" Member="HOADON" ThisKey="Mahd" OtherKey="Mahd" Type="HOADON" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_masp" Member="SANPHAM" ThisKey="Masp" OtherKey="Masp" Type="SANPHAM" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CHITIETNHAPKHO" Member="CHITIETNHAPKHOs">
+    <Type Name="CHITIETNHAPKHO">
+      <Column Name="Mank" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Soluongnhap" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Gianhap" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="Thanhtien" Type="System.Decimal" DbType="Decimal(29,2)" CanBeNull="true" IsDbGenerated="true" AutoSync="Always" UpdateCheck="Never" Expression="([Soluongnhap]*[Gianhap])" />
+      <Association Name="fk_mank" Member="NHAPKHO" ThisKey="Mank" OtherKey="Mank" Type="NHAPKHO" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_maspnk" Member="SANPHAM" ThisKey="Masp" OtherKey="Masp" Type="SANPHAM" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CHITIETXUATKHO" Member="CHITIETXUATKHOs">
+    <Type Name="CHITIETXUATKHO">
+      <Column Name="MaXK" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="SoLuongXuat" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="fk_maspxk" Member="SANPHAM" ThisKey="Masp" OtherKey="Masp" Type="SANPHAM" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_maxk" Member="XUATKHO" ThisKey="MaXK" OtherKey="MaXK" Type="XUATKHO" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CTTRAHANG" Member="CTTRAHANGs">
+    <Type Name="CTTRAHANG">
+      <Column Name="Matra" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Soluong" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Dongia" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Association Name="fk_maspth" Member="SANPHAM" ThisKey="Masp" OtherKey="Masp" Type="SANPHAM" IsForeignKey="true" />
+      <Association Name="fk_matra" Member="TRAHANG" ThisKey="Matra" OtherKey="Matra" Type="TRAHANG" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.HOADON" Member="HOADONs">
+    <Type Name="HOADON">
+      <Column Name="Mahd" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Ngaylap" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="Makh" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" CanBeNull="false" />
+      <Column Name="TongTienGoc" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="TienGiam" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="TongTien" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Association Name="fk_khachhanghd" Member="KHACHHANG" ThisKey="Makh" OtherKey="Makh" Type="KHACHHANG" IsForeignKey="true" />
+      <Association Name="fk_mahd" Member="APMAVCs" ThisKey="Mahd" OtherKey="Mahd" Type="APMAVC" DeleteRule="CASCADE" />
+      <Association Name="fk_mahdct" Member="CHITIETHDs" ThisKey="Mahd" OtherKey="Mahd" Type="CHITIETHD" DeleteRule="CASCADE" />
+      <Association Name="fk_mahdth" Member="TRAHANGs" ThisKey="Mahd" OtherKey="Mahd" Type="TRAHANG" DeleteRule="NO ACTION" />
+      <Association Name="fk_Manvhd" Member="NHANVIEN" ThisKey="Manv" OtherKey="Manv" Type="NHANVIEN" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.KHACHHANG" Member="KHACHHANGs">
+    <Type Name="KHACHHANG">
+      <Column Name="Makh" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Tenkh" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="Sdt" Type="System.String" DbType="VarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="Tichdiem" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Association Name="fk_khachhanghd" Member="HOADONs" ThisKey="Makh" OtherKey="Makh" Type="HOADON" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+  <Table Name="dbo.KIEUVC" Member="KIEUVCs">
+    <Type Name="KIEUVC">
+      <Column Name="Maloaivc" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Tenloai" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Association Name="fk_malvc" Member="VOUCHERs" ThisKey="Maloaivc" OtherKey="Maloaivc" Type="VOUCHER" DeleteRule="NO ACTION" />
+    </Type>
+  </Table>
+  <Table Name="dbo.LOAISP" Member="LOAISPs">
+    <Type Name="LOAISP">
+      <Column Name="Maloai" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Tenloai" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Association Name="fk_maloaisp" Member="VOUCHERs" ThisKey="Maloai" OtherKey="Maloai" Type="VOUCHER" DeleteRule="CASCADE" />
+      <Association Name="fk_sanpham_maloai" Member="SANPHAMs" ThisKey="Maloai" OtherKey="Maloai" Type="SANPHAM" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+  <Table Name="dbo.NHACUNGCAP" Member="NHACUNGCAPs">
+    <Type Name="NHACUNGCAP">
+      <Column Name="Manhacc" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Tennhacc" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Association Name="fk_manhacc" Member="NHAPKHOs" ThisKey="Manhacc" OtherKey="Manhacc" Type="NHAPKHO" DeleteRule="NO ACTION" />
+    </Type>
+  </Table>
+  <Table Name="dbo.NHANVIEN" Member="NHANVIENs">
+    <Type Name="NHANVIEN">
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Tk" Type="System.String" DbType="VarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="Mk" Type="System.String" DbType="VarChar(200) NOT NULL" CanBeNull="false" />
+      <Column Name="Luong" Type="System.Decimal" DbType="Decimal(18,2)" CanBeNull="true" />
+      <Column Name="Hoten" Type="System.String" DbType="NVarChar(100) NOT NULL" CanBeNull="false" />
+      <Column Name="Vitri" Type="System.String" DbType="NVarChar(20) NOT NULL" CanBeNull="false" />
+      <Column Name="Sdt" Type="System.String" DbType="VarChar(20)" CanBeNull="true" />
+      <Column Name="Diachi" Type="System.String" DbType="NVarChar(100)" CanBeNull="true" />
+      <Column Name="email" Member="Email" Type="System.String" DbType="VarChar(50)" CanBeNull="true" />
+      <Column Name="Bank" Type="System.String" DbType="VarChar(5)" CanBeNull="true" />
+      <Column Name="stk" Member="Stk" Type="System.String" DbType="VarChar(20)" CanBeNull="true" />
+      <Column Name="Ngsinh" Type="System.DateTime" DbType="Date" CanBeNull="true" />
+      <Association Name="fk_chamcong_Manv" Member="CHAMCONGs" ThisKey="Manv" OtherKey="Manv" Type="CHAMCONG" DeleteRule="CASCADE" />
+      <Association Name="fk_Manvhd" Member="HOADONs" ThisKey="Manv" OtherKey="Manv" Type="HOADON" DeleteRule="CASCADE" />
+      <Association Name="fk_manvnk" Member="NHAPKHOs" ThisKey="Manv" OtherKey="Manv" Type="NHAPKHO" DeleteRule="NO ACTION" />
+      <Association Name="fk_manvth" Member="TRAHANGs" ThisKey="Manv" OtherKey="Manv" Type="TRAHANG" DeleteRule="CASCADE" />
+      <Association Name="fk_manvXK" Member="XUATKHOs" ThisKey="Manv" OtherKey="Manv" Type="XUATKHO" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+  <Table Name="dbo.NHAPKHO" Member="NHAPKHOs">
+    <Type Name="NHAPKHO">
+      <Column Name="Mank" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Manhacc" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" CanBeNull="false" />
+      <Column Name="Ngaynhap" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Association Name="fk_manhacc" Member="NHACUNGCAP" ThisKey="Manhacc" OtherKey="Manhacc" Type="NHACUNGCAP" IsForeignKey="true" />
+      <Association Name="fk_mank" Member="CHITIETNHAPKHOs" ThisKey="Mank" OtherKey="Mank" Type="CHITIETNHAPKHO" DeleteRule="CASCADE" />
+      <Association Name="fk_manvnk" Member="NHANVIEN" ThisKey="Manv" OtherKey="Manv" Type="NHANVIEN" IsForeignKey="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.SANPHAM" Member="SANPHAMs">
+    <Type Name="SANPHAM">
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="tensp" Member="Tensp" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="Maloai" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="duongdananh" Member="Duongdananh" Type="System.String" DbType="NVarChar(255)" CanBeNull="true" />
+      <Column Name="giaban" Member="Giaban" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="soluongton" Member="Soluongton" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="canhbaotonkho" Member="Canhbaotonkho" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="trangthaisp" Member="Trangthaisp" Type="System.Boolean" DbType="Bit NOT NULL" CanBeNull="false" />
+      <Association Name="fk_masp" Member="CHITIETHDs" ThisKey="Masp" OtherKey="Masp" Type="CHITIETHD" DeleteRule="CASCADE" />
+      <Association Name="fk_maspnk" Member="CHITIETNHAPKHOs" ThisKey="Masp" OtherKey="Masp" Type="CHITIETNHAPKHO" DeleteRule="CASCADE" />
+      <Association Name="fk_maspth" Member="CTTRAHANGs" ThisKey="Masp" OtherKey="Masp" Type="CTTRAHANG" DeleteRule="NO ACTION" />
+      <Association Name="fk_maspvc" Member="VOUCHER_SANPHAMs" ThisKey="Masp" OtherKey="Masp" Type="VOUCHER_SANPHAM" DeleteRule="NO ACTION" />
+      <Association Name="fk_maspxk" Member="CHITIETXUATKHOs" ThisKey="Masp" OtherKey="Masp" Type="CHITIETXUATKHO" DeleteRule="CASCADE" />
+      <Association Name="fk_sanpham_maloai" Member="LOAISP" ThisKey="Maloai" OtherKey="Maloai" Type="LOAISP" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.TRAHANG" Member="TRAHANGs">
+    <Type Name="TRAHANG">
+      <Column Name="Matra" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Mahd" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="Ngaytra" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" CanBeNull="false" />
+      <Column Name="Lydotra" Type="System.String" DbType="NVarChar(200)" CanBeNull="true" />
+      <Association Name="fk_mahdth" Member="HOADON" ThisKey="Mahd" OtherKey="Mahd" Type="HOADON" IsForeignKey="true" />
+      <Association Name="fk_manvth" Member="NHANVIEN" ThisKey="Manv" OtherKey="Manv" Type="NHANVIEN" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_matra" Member="CTTRAHANGs" ThisKey="Matra" OtherKey="Matra" Type="CTTRAHANG" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+  <Table Name="dbo.VOUCHER" Member="VOUCHERs">
+    <Type Name="VOUCHER">
+      <Column Name="Mavc" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="TenMaGiamGia" Type="System.String" DbType="NVarChar(100)" CanBeNull="true" />
+      <Column Name="Code" Type="System.String" DbType="NVarChar(50) NOT NULL" CanBeNull="false" />
+      <Column Name="Giatri" Type="System.Decimal" DbType="Decimal(18,2) NOT NULL" CanBeNull="false" />
+      <Column Name="Ngaybd" Type="System.DateTime" DbType="Date NOT NULL" CanBeNull="false" />
+      <Column Name="Ngaykt" Type="System.DateTime" DbType="Date NOT NULL" CanBeNull="false" />
+      <Column Name="DieuKien" Type="System.Decimal" DbType="Decimal(18,2)" CanBeNull="true" />
+      <Column Name="Maloaivc" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
+      <Column Name="maloai" Member="Maloai" Type="System.Int32" DbType="Int" CanBeNull="true" />
+      <Association Name="fk_maloaisp" Member="LOAISP" ThisKey="Maloai" OtherKey="Maloai" Type="LOAISP" IsForeignKey="true" />
+      <Association Name="fk_malvc" Member="KIEUVC" ThisKey="Maloaivc" OtherKey="Maloaivc" Type="KIEUVC" IsForeignKey="true" />
+      <Association Name="fk_mavc" Member="APMAVCs" ThisKey="Mavc" OtherKey="Mavc" Type="APMAVC" DeleteRule="CASCADE" />
+      <Association Name="fk_mavcsp" Member="VOUCHER_SANPHAMs" ThisKey="Mavc" OtherKey="Mavc" Type="VOUCHER_SANPHAM" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+  <Table Name="dbo.VOUCHER_SANPHAM" Member="VOUCHER_SANPHAMs">
+    <Type Name="VOUCHER_SANPHAM">
+      <Column Name="Mavc" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Column Name="Masp" Type="System.Int32" DbType="Int NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
+      <Association Name="fk_maspvc" Member="SANPHAM" ThisKey="Masp" OtherKey="Masp" Type="SANPHAM" IsForeignKey="true" />
+      <Association Name="fk_mavcsp" Member="VOUCHER" ThisKey="Mavc" OtherKey="Mavc" Type="VOUCHER" IsForeignKey="true" DeleteOnNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.XUATKHO" Member="XUATKHOs">
+    <Type Name="XUATKHO">
+      <Column Name="MaXK" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="NgayXuat" Type="System.DateTime" DbType="DateTime NOT NULL" CanBeNull="false" />
+      <Column Name="Manv" Type="System.String" DbType="VarChar(10) NOT NULL" CanBeNull="false" />
+      <Column Name="LyDoxuat" Type="System.String" DbType="NVarChar(200)" CanBeNull="true" />
+      <Association Name="fk_manvXK" Member="NHANVIEN" ThisKey="Manv" OtherKey="Manv" Type="NHANVIEN" IsForeignKey="true" DeleteOnNull="true" />
+      <Association Name="fk_maxk" Member="CHITIETXUATKHOs" ThisKey="MaXK" OtherKey="MaXK" Type="CHITIETXUATKHO" DeleteRule="CASCADE" />
+    </Type>
+  </Table>
+</Database>

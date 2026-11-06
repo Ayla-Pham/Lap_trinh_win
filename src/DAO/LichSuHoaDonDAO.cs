@@ -1,5 +1,4 @@
 ﻿using DTO;
-using Microsoft.EntityFrameworkCore;
 
 namespace DAO
 {
@@ -9,11 +8,11 @@ namespace DAO
         public List<LichSuHoaDonDTO> SearchHoaDon(string? timKiem, string? maNV, DateTime? tuNgay, DateTime? denNgay)
         {
             using var db = Db.Create();
-            var q = db.Hoadons.AsNoTracking().AsQueryable();
+            var q = db.HOADONs.AsQueryable();
 
             if (timKiem != null)
-                q = q.Where(h => (h.MakhNavigation != null
-                                  && (h.MakhNavigation.Tenkh.Contains(timKiem) || h.MakhNavigation.Sdt.Contains(timKiem)))
+                q = q.Where(h => (h.KHACHHANG != null
+                                  && (h.KHACHHANG.Tenkh.Contains(timKiem) || h.KHACHHANG.Sdt.Contains(timKiem)))
                                  || h.Mahd.ToString() == timKiem);
 
             if (maNV != null)
@@ -36,8 +35,8 @@ namespace DAO
                 {
                     MaHD = h.Mahd,
                     NgayLap = h.Ngaylap,
-                    TenNhanVien = h.ManvNavigation.Hoten,
-                    TenKhachHang = h.MakhNavigation != null ? h.MakhNavigation.Tenkh : "Khách vãng lai",
+                    TenNhanVien = h.NHANVIEN.Hoten,
+                    TenKhachHang = h.KHACHHANG != null ? h.KHACHHANG.Tenkh : "Khách vãng lai",
                     TongTien = h.TongTien
                 })
                 .ToList();
@@ -47,8 +46,8 @@ namespace DAO
         public List<NhanVienDTO> GetNhanVienList()
         {
             using var db = Db.Create();
-            return db.Nhanviens
-                .AsNoTracking()
+            return db.NHANVIENs
+                
                 .Select(nv => new NhanVienDTO
                 {
                     Mand = nv.Manv,
@@ -62,12 +61,12 @@ namespace DAO
         public List<ChiTietLichSuDTO> GetChiTietHoaDon(int maHD)
         {
             using var db = Db.Create();
-            return db.Chitiethds
-                .AsNoTracking()
+            return db.CHITIETHDs
+                
                 .Where(ct => ct.Mahd == maHD)
                 .Select(ct => new ChiTietLichSuDTO
                 {
-                    TenSP = ct.MaspNavigation.Tensp,
+                    TenSP = ct.SANPHAM.Tensp,
                     SoLuong = ct.Soluong,
                     DonGia = ct.Dongia,
                     ThanhTien = ct.Soluong * ct.Dongia
@@ -79,17 +78,17 @@ namespace DAO
         public HoaDonDayDuDTO? GetThongTinCoBanHD(int maHD)
         {
             using var db = Db.Create();
-            return db.Hoadons
-                .AsNoTracking()
+            return db.HOADONs
+                
                 .Where(h => h.Mahd == maHD)
                 .Select(h => new HoaDonDayDuDTO
                 {
                     MaHD = h.Mahd,
                     NgayLap = h.Ngaylap,
-                    TenNhanVien = h.ManvNavigation.Hoten,
-                    TenKhachHang = h.MakhNavigation != null ? h.MakhNavigation.Tenkh : "Khách vãng lai",
-                    SdtKhachHang = h.MakhNavigation != null ? h.MakhNavigation.Sdt : null,
-                    TichDiem = h.MakhNavigation != null ? h.MakhNavigation.Tichdiem : 0,
+                    TenNhanVien = h.NHANVIEN.Hoten,
+                    TenKhachHang = h.KHACHHANG != null ? h.KHACHHANG.Tenkh : "Khách vãng lai",
+                    SdtKhachHang = h.KHACHHANG != null ? h.KHACHHANG.Sdt : null,
+                    TichDiem = h.KHACHHANG != null ? h.KHACHHANG.Tichdiem : 0,
                     TongTienCuoiCung = h.TongTien
                 })
                 .FirstOrDefault();
@@ -99,11 +98,9 @@ namespace DAO
         public List<string> GetVouchersSuDung(int maHD)
         {
             using var db = Db.Create();
-            return db.Hoadons
-                .AsNoTracking()
-                .Where(h => h.Mahd == maHD)
-                .SelectMany(h => h.Mavcs)
-                .Select(v => v.Code)
+            return db.APMAVCs
+                .Where(a => a.Mahd == maHD)
+                .Select(a => a.VOUCHER.Code)
                 .ToList();
         }
 
@@ -111,10 +108,10 @@ namespace DAO
         public List<KhachHangCuaNVDTO> GetKhachHangCuaNhanVien(string maNV)
         {
             using var db = Db.Create();
-            return db.Hoadons
-                .AsNoTracking()
+            return db.HOADONs
+                
                 .Where(h => h.Manv == maNV && h.Makh != null)
-                .GroupBy(h => new { h.MakhNavigation!.Tenkh, h.MakhNavigation.Sdt })
+                .GroupBy(h => new { h.KHACHHANG!.Tenkh, h.KHACHHANG.Sdt })
                 .Select(g => new KhachHangCuaNVDTO
                 {
                     TenKH = g.Key.Tenkh,

@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            Font = new System.Drawing.Font("Segoe UI", 9F);  // phông mặc định như .NET 8, để AutoScaleMode.Font co giãn đúng
             dgvChiTiet = new DataGridView();
             btnThoat = new Button();
             dgvThongTinChung = new DataGridView();

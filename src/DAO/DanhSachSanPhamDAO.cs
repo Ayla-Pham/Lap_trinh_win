@@ -1,6 +1,4 @@
-﻿using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
@@ -15,8 +13,8 @@ namespace DAO
         public List<LoaiSPDTO> GetLoaiSanPham()
         {
             using var db = Db.Create();
-            return db.Loaisps
-                .AsNoTracking()
+            return db.LOAISPs
+                
                 .Select(l => new LoaiSPDTO { MaLoai = l.Maloai, TenLoai = l.Tenloai })
                 .ToList();
         }
@@ -24,7 +22,7 @@ namespace DAO
         private static List<DanhSachSanPhamDTO> Lay(string? tuKhoa, int maLoai)
         {
             using var db = Db.Create();
-            var q = db.Sanphams.AsNoTracking().AsQueryable();
+            var q = db.SANPHAMs.AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(tuKhoa))
                 q = q.Where(sp => sp.Tensp.Contains(tuKhoa) || sp.Masp.ToString().Contains(tuKhoa));
@@ -37,7 +35,7 @@ namespace DAO
                 {
                     sp.Masp,
                     sp.Tensp,
-                    TenLoai = sp.MaloaiNavigation.Tenloai,
+                    TenLoai = sp.LOAISP.Tenloai,
                     sp.Maloai,
                     sp.Giaban,
                     sp.Soluongton,
@@ -74,14 +72,14 @@ namespace DAO
         public List<SanPhamXemDTO> GetSanPhamWithVoucher()
         {
             using var db = Db.Create();
-            return db.Sanphams
-                .AsNoTracking()
+            return db.SANPHAMs
+                
                 .OrderBy(sp => sp.Masp)
                 .Select(sp => new SanPhamXemDTO
                 {
                     MaSP = sp.Masp,
                     TenSP = sp.Tensp,
-                    TenLoai = sp.MaloaiNavigation.Tenloai,
+                    TenLoai = sp.LOAISP.Tenloai,
                     Maloai = sp.Maloai,
                     GiaBan = sp.Giaban,
                     SoLuongTon = sp.Soluongton,
@@ -96,21 +94,19 @@ namespace DAO
         public bool ToggleTrangThaiSanPham(int masp)
         {
             using var db = Db.Create();
-            var sp = db.Sanphams.FirstOrDefault(s => s.Masp == masp);
+            var sp = db.SANPHAMs.FirstOrDefault(s => s.Masp == masp);
             if (sp == null) return false;
             sp.Trangthaisp = !sp.Trangthaisp;
-            return db.SaveChanges() > 0;
+            return db.Save() > 0;
         }
 
         // Các sản phẩm gắn với voucher
         public List<int> GetChiTietVoucher(int mavc)
         {
             using var db = Db.Create();
-            return db.Vouchers
-                .AsNoTracking()
-                .Where(v => v.Mavc == mavc)
-                .SelectMany(v => v.Masps)
-                .Select(s => s.Masp)
+            return db.VOUCHER_SANPHAMs
+                .Where(vs => vs.Mavc == mavc)
+                .Select(vs => vs.Masp)
                 .ToList();
         }
 
@@ -118,10 +114,10 @@ namespace DAO
         public bool DeleteSanPham(int masp)
         {
             using var db = Db.Create();
-            var sp = db.Sanphams.FirstOrDefault(s => s.Masp == masp);
+            var sp = db.SANPHAMs.FirstOrDefault(s => s.Masp == masp);
             if (sp == null) return false;
-            db.Sanphams.Remove(sp);
-            return db.SaveChanges() > 0;
+            db.SANPHAMs.DeleteOnSubmit(sp);
+            return db.Save() > 0;
         }
 
         // Legacy/compat: sizes removed — return 0
@@ -146,7 +142,7 @@ namespace DAO
             if (masp == 0) return null;
 
             using var db = Db.Create();
-            var x = db.Sanphams.AsNoTracking().FirstOrDefault(s => s.Masp == masp);
+            var x = db.SANPHAMs.FirstOrDefault(s => s.Masp == masp);
             if (x == null) return null;
 
             return new SanPhamDTO
@@ -170,7 +166,7 @@ namespace DAO
             if (!int.TryParse(maSP, out int masp)) return 0;
 
             using var db = Db.Create();
-            return db.Sanphams.Any(s => s.Masp == masp) ? masp : 0;
+            return db.SANPHAMs.Any(s => s.Masp == masp) ? masp : 0;
         }
 
         public bool InsertSanPham(SanPhamDTO sp)
@@ -178,7 +174,7 @@ namespace DAO
             if (sp == null) return false;
 
             using var db = Db.Create();
-            db.Sanphams.Add(new Sanpham
+            db.SANPHAMs.InsertOnSubmit(new SANPHAM
             {
                 Tensp = sp.TenSP ?? string.Empty,
                 Maloai = sp.MaLoai,
@@ -188,7 +184,7 @@ namespace DAO
                 Soluongton = 0,
                 Trangthaisp = true
             });
-            return db.SaveChanges() > 0;
+            return db.Save() > 0;
         }
 
         public bool UpdateSanPham(SanPhamDTO sp)
@@ -196,7 +192,7 @@ namespace DAO
             if (sp == null) return false;
 
             using var db = Db.Create();
-            var e = db.Sanphams.FirstOrDefault(s => s.Masp == sp.Masp);
+            var e = db.SANPHAMs.FirstOrDefault(s => s.Masp == sp.Masp);
             if (e == null) return false;
 
             e.Tensp = sp.TenSP ?? string.Empty;
@@ -205,7 +201,7 @@ namespace DAO
             e.Canhbaotonkho = sp.CanhBaoTonKho;
             if (!string.IsNullOrWhiteSpace(sp.DuongDanAnh))
                 e.Duongdananh = sp.DuongDanAnh;   // giữ ảnh cũ nếu không chọn ảnh mới
-            return db.SaveChanges() > 0;
+            return db.Save() > 0;
         }
     }
 }

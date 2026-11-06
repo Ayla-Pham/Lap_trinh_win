@@ -1,6 +1,4 @@
-using DAO.Models;
-using DTO;
-using Microsoft.EntityFrameworkCore;
+﻿using DTO;
 
 namespace DAO
 {
@@ -14,8 +12,8 @@ namespace DAO
         public static List<KhachHangDTO> layDSKH()
         {
             using var db = Db.Create();
-            return db.Khachhangs
-                .AsNoTracking()
+            return db.KHACHHANGs
+                
                 .Select(k => new KhachHangDTO(k.Makh, k.Tenkh, k.Sdt, k.Tichdiem))
                 .ToList();
         }
@@ -23,7 +21,7 @@ namespace DAO
         public static string GetTenKhachHang(int maKH)
         {
             using var db = Db.Create();
-            return db.Khachhangs
+            return db.KHACHHANGs
                 .Where(k => k.Makh == maKH)
                 .Select(k => k.Tenkh)
                 .FirstOrDefault() ?? "Khách lẻ";
@@ -32,7 +30,7 @@ namespace DAO
         public static string GetSDTKhachHang(int maKH)
         {
             using var db = Db.Create();
-            return db.Khachhangs
+            return db.KHACHHANGs
                 .Where(k => k.Makh == maKH)
                 .Select(k => k.Sdt)
                 .FirstOrDefault() ?? "";
@@ -41,7 +39,7 @@ namespace DAO
         public static string LayTenKhachHangTheoSDT(string sdt)
         {
             using var db = Db.Create();
-            return db.Khachhangs
+            return db.KHACHHANGs
                 .Where(k => k.Sdt == sdt)
                 .Select(k => k.Tenkh)
                 .FirstOrDefault() ?? "Khách lẻ";
@@ -50,40 +48,40 @@ namespace DAO
         public static void themKH(KhachHangDTO kh)
         {
             using var db = Db.Create();
-            db.Khachhangs.Add(new Khachhang
+            db.KHACHHANGs.InsertOnSubmit(new KHACHHANG
             {
                 Tenkh = kh.Tenkh,
                 Sdt = kh.Sdt,
                 Tichdiem = kh.Tichdiem
             });
-            db.SaveChanges();
+            db.Save();
         }
 
         public static void xoaKH(int makh)
         {
             using var db = Db.Create();
-            var entity = db.Khachhangs.FirstOrDefault(k => k.Makh == makh);
+            var entity = db.KHACHHANGs.FirstOrDefault(k => k.Makh == makh);
             if (entity == null) return;
-            db.Khachhangs.Remove(entity);
-            db.SaveChanges();
+            db.KHACHHANGs.DeleteOnSubmit(entity);
+            db.Save();
         }
 
         public static void suaKH(KhachHangDTO kh)
         {
             using var db = Db.Create();
-            var entity = db.Khachhangs.FirstOrDefault(k => k.Makh == kh.Makh);
+            var entity = db.KHACHHANGs.FirstOrDefault(k => k.Makh == kh.Makh);
             if (entity == null) return;
             entity.Tenkh = kh.Tenkh;
             entity.Sdt = kh.Sdt;
             entity.Tichdiem = kh.Tichdiem;
-            db.SaveChanges();
+            db.Save();
         }
 
         public static List<KhachHangDTO> timTheoTenHoacSDT(string keyword)
         {
             using var db = Db.Create();
-            return db.Khachhangs
-                .AsNoTracking()
+            return db.KHACHHANGs
+                
                 .Where(k => k.Tenkh.Contains(keyword) || k.Sdt.Contains(keyword))
                 .Select(k => new KhachHangDTO(k.Makh, k.Tenkh, k.Sdt, k.Tichdiem))
                 .ToList();
@@ -92,8 +90,8 @@ namespace DAO
         public List<KhachHangDTO> TimKiemTheoSDT(string sdt)
         {
             using var db = Db.Create();
-            return db.Khachhangs
-                .AsNoTracking()
+            return db.KHACHHANGs
+                
                 .Where(k => k.Sdt.Contains(sdt))
                 .Select(k => new KhachHangDTO { Makh = k.Makh, Tenkh = k.Tenkh, Sdt = k.Sdt })
                 .ToList();

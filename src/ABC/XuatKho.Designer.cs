@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            Font = new System.Drawing.Font("Segoe UI", 9F);  // phông mặc định như .NET 8, để AutoScaleMode.Font co giãn đúng
             tlpThongtin = new TableLayoutPanel();
             // Control mới cho Lý do
             lblLyDo = new Label();

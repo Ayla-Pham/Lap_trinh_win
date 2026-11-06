@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            Font = new System.Drawing.Font("Segoe UI", 9F);  // phông mặc định như .NET 8, để AutoScaleMode.Font co giãn đúng
             DataGridViewCellStyle dataGridViewCellStyle1 = new DataGridViewCellStyle();
             tlpall = new TableLayoutPanel();
             picLogo = new PictureBox();

@@ -12,6 +12,7 @@
 
         private void InitializeComponent()
         {
+            this.Font = new System.Drawing.Font("Segoe UI", 9F);  // phông mặc định như .NET 8, để AutoScaleMode.Font co giãn đúng
             this.tlpall = new System.Windows.Forms.TableLayoutPanel();
             this.picLogo = new System.Windows.Forms.PictureBox();
             this.tlpThongtin = new System.Windows.Forms.TableLayoutPanel();
